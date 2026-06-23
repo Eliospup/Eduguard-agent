@@ -1,0 +1,61 @@
+{
+  "manifest_version": 3,
+  "name": "Guardi Image Shield",
+  "version": "0.8.24",
+  "description": "Guardi's safe browser Ã¢â‚¬â€ blurs yucky pictures on-device and wraps your tabs in a cozy, protected UI.",
+  "permissions": [
+    "storage",
+    "alarms",
+    "tabs",
+    "nativeMessaging",
+    "webRequest",
+    "webRequestBlocking",
+    "offscreen",
+    "theme"
+  ],
+  "host_permissions": [
+    "<all_urls>",
+    "http://127.0.0.1:38473/*"
+  ],
+  "icons": {
+    "48": "assets/guardi-logo.svg",
+    "96": "assets/guardi-logo.svg",
+    "128": "assets/guardi-logo.svg"
+  },
+  "action": {
+    "default_title": "Guardi is watching over you, sweetie!",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "assets/guardi-logo.svg",
+      "32": "assets/guardi-logo.svg",
+      "48": "assets/guardi-logo.svg"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "css": [
+        "blur.css"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "assets/*",
+        "models/*",
+        "wasm/*"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Guardi — your cozy safe browser, sweetie</title>
+    <link rel="stylesheet" href="guardi-ui.css" />
+  </head>
+  <body class="guardi-newtab">
+    <div class="guardi-sky" role="presentation">
+      <span class="guardi-star guardi-star--1" aria-hidden="true">✨</span>
+      <span class="guardi-star guardi-star--2" aria-hidden="true">⭐</span>
+      <span class="guardi-star guardi-star--3" aria-hidden="true">✨</span>
+      <span class="guardi-star guardi-star--4" aria-hidden="true">💫</span>
+      <div class="guardi-cloud guardi-cloud--1" aria-hidden="true"></div>
+      <div class="guardi-cloud guardi-cloud--2" aria-hidden="true"></div>
+      <div class="guardi-bubble guardi-bubble--1" aria-hidden="true"></div>
+      <div class="guardi-bubble guardi-bubble--2" aria-hidden="true"></div>
+      <div class="guardi-bubble guardi-bubble--3" aria-hidden="true"></div>
+
+      <main class="guardi-page" role="main">
+        <div class="guardi-hero">
+          <div class="guardi-mascot-wrap">
+            <img
+              class="guardi-mascot"
+              src="assets/guardi-mascot.svg"
+              width="168"
+              height="190"
+              alt=""
+              aria-hidden="true"
+            />
+            <div class="guardi-speech-bubble" aria-live="polite">
+              <p id="guardi-greeting">Hi sweetie! Guardi's got your back today.</p>
+            </div>
+          </div>
+          <h1 class="guardi-title" data-guardi="title">Your cozy safe browser</h1>
+          <p class="guardi-subtitle" data-guardi="subtitle">
+            Guardi hides the yucky stuff — you just browse like a good little one.
+          </p>
+        </div>
+
+        <form class="guardi-search" id="guardi-search" role="search">
+          <span class="guardi-search__icon" aria-hidden="true">🔎</span>
+          <input
+            id="guardi-search-input"
+            type="search"
+            name="q"
+            autocomplete="off"
+            placeholder="Where shall we go, sweetie?"
+            aria-label="Search the web safely"
+          />
+          <button type="submit">Go!</button>
+        </form>
+
+        <div class="guardi-chips" id="guardi-chips" role="status">
+          <span class="guardi-chip"><span aria-hidden="true">🛡️</span> Guardi's watching!</span>
+          <span class="guardi-chip"><span aria-hidden="true">🌸</span> Icky pics stay hidden</span>
+          <span class="guardi-chip"><span aria-hidden="true">🧸</span> Supervised &amp; cozy</span>
+        </div>
+      </main>
+    </div>
+    <script src="guardi-shell.js"></script>
+    <script src="guardi-newtab.js"></script>
+  </body>
+</html>

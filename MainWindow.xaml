@@ -1,0 +1,1326 @@
+﻿<Window x:Class="EduGuardAgent.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        xmlns:views="clr-namespace:EduGuardAgent.Views"
+        xmlns:prof="clr-namespace:EduGuardAgent.Profiles"
+        Title="EduGuard"
+        WindowStyle="None"
+        ResizeMode="CanResize"
+        Width="1180"
+        Height="820"
+        MinWidth="900"
+        MinHeight="620"
+        WindowStartupLocation="CenterScreen"
+        ShowInTaskbar="True"
+        SnapsToDevicePixels="True"
+        UseLayoutRounding="True"
+        AllowsTransparency="False"
+        Background="{DynamicResource PageGradient}">
+    <shell:WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="0"
+                      CornerRadius="{DynamicResource WindowCornerRadius}"
+                      GlassFrameThickness="0"
+                      ResizeBorderThickness="6"
+                      UseAeroCaptionButtons="False" />
+    </shell:WindowChrome.WindowChrome>
+    <Grid Margin="10">
+        <Border Background="{DynamicResource PageGradient}"
+                CornerRadius="{DynamicResource WindowCornerRadius}"
+                Effect="{DynamicResource WindowShellShadow}"
+                CacheMode="BitmapCache" />
+        <Border x:Name="WindowShell"
+                Background="{DynamicResource PageGradient}"
+                BorderBrush="{DynamicResource GlassBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="{DynamicResource WindowCornerRadius}"
+                ClipToBounds="True"
+                SnapsToDevicePixels="True">
+            <Grid Background="{DynamicResource PageGradient}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Top bar -->
+        <Border Grid.Row="0"
+                Background="{DynamicResource PageGradient}"
+                BorderBrush="{DynamicResource GlassBorderBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="28,20,28,20"
+                MouseLeftButtonDown="OnTitleBarMouseDown">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" MinWidth="160" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Orientation="Horizontal"
+                            VerticalAlignment="Center"
+                            HorizontalAlignment="Left"
+                            MaxWidth="360">
+                    <Button Content="Back"
+                            Style="{StaticResource GhostButton}"
+                            Command="{Binding NavigateBackCommand}"
+                            Visibility="{Binding ShowBackButton, Converter={StaticResource BoolToVisibility}}"
+                            Margin="0,0,14,0"
+                            Padding="14,8"
+                            FontSize="13" />
+                    <views:GuardiMascot Width="52" Height="58" Margin="0,0,12,0"
+                                        VerticalAlignment="Center"
+                                        Visibility="{Binding ShowMascot, Converter={StaticResource BoolToVisibility}}" />
+                    <Border Width="44" Height="44"
+                            CornerRadius="{DynamicResource SmallCornerRadius}"
+                            Background="#33FFFFFF"
+                            Margin="0,0,12,0"
+                            VerticalAlignment="Center"
+                            Visibility="{Binding IsMatureUi, Converter={StaticResource BoolToVisibility}}">
+                        <views:GuardiShieldIcon Width="28"
+                                                Height="32"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="EduGuard" FontSize="14" Foreground="{DynamicResource OnPrimaryMutedBrush}" />
+                        <TextBlock Text="{Binding AppSubtitle}"
+                                   FontSize="18"
+                                   FontWeight="Bold"
+                                   Foreground="{DynamicResource OnPrimaryBrush}"
+                                   TextWrapping="Wrap"
+                                   MaxWidth="260" />
+                    </StackPanel>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Margin="20,0">
+                    <TextBlock Text="{Binding HeaderCenterTitle}"
+                               FontSize="22"
+                               FontWeight="Bold"
+                               Foreground="{DynamicResource OnPrimaryBrush}"
+                               HorizontalAlignment="Center"
+                               TextAlignment="Center" />
+                    <TextBlock Text="{Binding HeaderCenterSubtitle}"
+                               FontSize="13"
+                               Foreground="{DynamicResource OnPrimaryMutedBrush}"
+                               HorizontalAlignment="Center"
+                               TextAlignment="Center"
+                               TextWrapping="Wrap"
+                               MaxWidth="420"
+                               Margin="0,4,0,0" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Ellipse Width="10" Height="10" Margin="0,0,8,0">
+                            <Ellipse.Style>
+                                <Style TargetType="Ellipse">
+                                    <Setter Property="Fill" Value="{DynamicResource OnPrimaryMutedBrush}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsOnline}" Value="True">
+                                            <Setter Property="Fill" Value="{DynamicResource OnlineBrush}" />
+                                            <Setter Property="Effect" Value="{DynamicResource StatusGlow}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Ellipse.Style>
+                        </Ellipse>
+                        <TextBlock Text="{Binding OnlineLabel}" Foreground="{DynamicResource OnPrimaryBrush}" FontWeight="SemiBold" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding SupervisionStatusLabel}"
+                               Foreground="{DynamicResource OnPrimaryMutedBrush}"
+                               HorizontalAlignment="Right"
+                               FontSize="11"
+                               Margin="0,2,0,0" />
+                    <TextBlock Text="{Binding CurrentTime}"
+                               Foreground="{DynamicResource OnPrimaryMutedBrush}"
+                               HorizontalAlignment="Right"
+                               Margin="0,8,0,0"
+                               FontSize="15" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Main body -->
+        <Grid Grid.Row="1">
+            <Rectangle Fill="{DynamicResource PageAtmosphereBrush}"
+                       IsHitTestVisible="False" />
+
+            <!-- Dashboard home -->
+            <ScrollViewer Style="{StaticResource GuardiScrollViewer}"
+                          Padding="36,22,36,28"
+                          Visibility="{Binding IsHomePage, Converter={StaticResource BoolToVisibility}}">
+                <Grid x:Name="DashboardReveal"
+                      MaxWidth="1280"
+                      HorizontalAlignment="Center"
+                      Opacity="0"
+                      CacheMode="BitmapCache">
+                    <Grid.RenderTransform>
+                        <TranslateTransform Y="20" />
+                    </Grid.RenderTransform>
+                    <Grid.Triggers>
+                        <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                            <BeginStoryboard>
+                                <Storyboard>
+                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                     From="0"
+                                                     To="1"
+                                                     Duration="0:0:0.55">
+                                        <DoubleAnimation.EasingFunction>
+                                            <CubicEase EasingMode="EaseOut" />
+                                        </DoubleAnimation.EasingFunction>
+                                    </DoubleAnimation>
+                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                                                     From="20"
+                                                     To="0"
+                                                     Duration="0:0:0.55">
+                                        <DoubleAnimation.EasingFunction>
+                                            <CubicEase EasingMode="EaseOut" />
+                                        </DoubleAnimation.EasingFunction>
+                                    </DoubleAnimation>
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </EventTrigger>
+                    </Grid.Triggers>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.35*" />
+                        <ColumnDefinition Width="0.95*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Row="0"
+                            Grid.ColumnSpan="2"
+                            Style="{StaticResource HeroCard}"
+                            Margin="0,0,0,18"
+                            Background="{DynamicResource CardBrush}"
+                            BorderBrush="{DynamicResource HomeHeroAccentBrush}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <views:GuardiMascot Width="76"
+                                                Height="86"
+                                                VerticalAlignment="Top"
+                                                Margin="0,0,20,0"
+                                                Visibility="{Binding ShowMascot, Converter={StaticResource BoolToVisibility}}" />
+
+                            <Border Width="76"
+                                    Height="76"
+                                    CornerRadius="22"
+                                    Background="{DynamicResource HomeSurfaceBrush}"
+                                    BorderBrush="{DynamicResource HomeSurfaceBorderBrush}"
+                                    BorderThickness="1"
+                                    VerticalAlignment="Top"
+                                    Margin="0,0,20,0"
+                                    Visibility="{Binding IsMatureUi, Converter={StaticResource BoolToVisibility}}">
+                                <views:GuardiShieldIcon Width="52"
+                                                        Height="58"
+                                                        HorizontalAlignment="Center"
+                                                        VerticalAlignment="Center" />
+                            </Border>
+
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Left">
+                                <TextBlock Text="{Binding HeaderCenterTitle}"
+                                           HorizontalAlignment="Left"
+                                           TextAlignment="Left"
+                                           FontSize="30"
+                                           FontWeight="Bold"
+                                           Foreground="{DynamicResource TextBrush}" />
+                                <TextBlock Text="{Binding HeaderCenterSubtitle}"
+                                           HorizontalAlignment="Left"
+                                           TextAlignment="Left"
+                                           FontSize="15"
+                                           Foreground="{DynamicResource MutedBrush}"
+                                           TextWrapping="Wrap"
+                                           MaxWidth="680"
+                                           Margin="0,8,0,0" />
+
+                                <WrapPanel Margin="0,18,0,0" HorizontalAlignment="Left">
+                                    <Border Style="{StaticResource MetricPill}" Margin="0,0,12,12">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="ON"
+                                                       Foreground="{DynamicResource OnlineBrush}"
+                                                       FontSize="12"
+                                                       FontWeight="Bold"
+                                                       Margin="0,0,8,0" />
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding OnlineLabel}"
+                                                           Foreground="{DynamicResource TextBrush}"
+                                                           FontWeight="SemiBold" />
+                                                <TextBlock Text="{Binding SupervisionStatusLabel}"
+                                                           Foreground="{DynamicResource MutedBrush}"
+                                                           FontSize="11" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </WrapPanel>
+
+                                <Border Margin="0,4,0,0"
+                                        HorizontalAlignment="Left"
+                                        Padding="16,14"
+                                        MaxWidth="780"
+                                        Background="{DynamicResource HomeSurfaceBrush}"
+                                        BorderBrush="{DynamicResource HomeSurfaceBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="20">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding SecurityZoneTitle}"
+                                                   Foreground="{DynamicResource TextBrush}"
+                                                   FontWeight="SemiBold"
+                                                   FontSize="15" />
+                                        <TextBlock Text="{Binding SecurityZoneBody}"
+                                                   Foreground="{DynamicResource MutedBrush}"
+                                                   FontSize="13"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,4,0,0"
+                                                   LineHeight="19" />
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Top">
+                                <Button Content="Min"
+                                        Style="{StaticResource SubtleButton}"
+                                        Click="OnMinimizeClick"
+                                        ToolTip="Minimize"
+                                        Padding="14,6"
+                                        FontSize="14"
+                                        Margin="0,0,0,8"
+                                        Visibility="{Binding IsKioskActive, Converter={StaticResource BoolToVisibilityInverse}}" />
+                                <Button Content="Close"
+                                        Style="{StaticResource SubtleButton}"
+                                        Click="OnCloseClick"
+                                        ToolTip="Close EduGuard"
+                                        Padding="14,6"
+                                        FontSize="12"
+                                        Visibility="{Binding IsKioskActive, Converter={StaticResource BoolToVisibilityInverse}}" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="1"
+                            Grid.ColumnSpan="2"
+                            Style="{StaticResource GlassCard}"
+                            Padding="26,22"
+                            Background="{DynamicResource CardBrush}"
+                            BorderBrush="{DynamicResource SkyBorderBrush}"
+                            Margin="0,0,0,16"
+                            Visibility="{Binding IsSubMode, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel>
+                            <TextBlock Text="{Binding ScreenTimeTitle}"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource MutedBrush}"
+                                       Margin="0,0,0,6" />
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
+                                <TextBlock FontSize="42"
+                                           FontWeight="Bold"
+                                           Foreground="{DynamicResource PrimaryBrush}">
+                                    <Run Text="{Binding WidgetScreenTimeRemaining, Mode=OneWay}" />
+                                </TextBlock>
+                                <TextBlock Text=" left"
+                                           FontSize="18"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource MutedBrush}"
+                                           VerticalAlignment="Bottom"
+                                           Margin="6,0,0,8" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding InfractionsGood}"
+                                       Foreground="#EC4899"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       Margin="0,2,0,12"
+                                       Visibility="{Binding ShowInfractionsGood, Converter={StaticResource BoolToVisibility}}" />
+                            <ProgressBar Style="{StaticResource GuardiProgressBar}"
+                                         Minimum="0"
+                                         Maximum="100"
+                                         Value="{Binding ScreenTimeProgress, Mode=OneWay}" />
+                            <Grid Margin="0,8,0,0">
+                                <TextBlock Text="{Binding ScreenTimeUsed}"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource MutedBrush}"
+                                           HorizontalAlignment="Left" />
+                                <TextBlock Text="{Binding ScreenTimeLimitText}"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource MutedBrush}"
+                                           HorizontalAlignment="Right" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <Grid Grid.Row="2"
+                          Grid.Column="0"
+                          Margin="0,0,12,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.2*" />
+                            <ColumnDefinition Width="0.8*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Style="{StaticResource GlassCard}"
+                                Padding="24"
+                                Background="{DynamicResource CardBrush}"
+                                BorderBrush="{DynamicResource SkyBorderBrush}"
+                                Margin="0,0,12,0"
+                                Visibility="{Binding ShowTodayRulesCard, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,14">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Ellipse Width="10" Height="10" Margin="0,4,10,0" VerticalAlignment="Top">
+                                        <Ellipse.Style>
+                                            <Style TargetType="Ellipse">
+                                                <Setter Property="Fill" Value="{StaticResource SupervisionPendingBrush}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding ConnectionStateIsLinked}" Value="True">
+                                                        <Setter Property="Fill" Value="{DynamicResource OnlineBrush}" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding ConnectionStateIsPending}" Value="True">
+                                                        <Setter Property="Fill" Value="{StaticResource SupervisionPendingBrush}" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding ConnectionStateIsOffline}" Value="True">
+                                                        <Setter Property="Fill" Value="{StaticResource WarningBrush}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Ellipse.Style>
+                                    </Ellipse>
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Text="{Binding ConnectionStateTitle}"
+                                                   FontWeight="Bold"
+                                                   FontSize="16"
+                                                   Foreground="{DynamicResource TextBrush}" />
+                                        <TextBlock Text="{Binding ConnectionStateBody}"
+                                                   TextWrapping="Wrap"
+                                                   FontSize="13"
+                                                   Foreground="{DynamicResource MutedBrush}"
+                                                   Margin="0,4,0,0"
+                                                   LineHeight="18" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <Border Height="1" Background="{DynamicResource GlassDividerBrush}" Margin="0,0,0,14" />
+
+                                <TextBlock Text="{Binding TodayRulesTitle}"
+                                           FontSize="15"
+                                           FontWeight="Bold"
+                                           FontFamily="{DynamicResource AppEyebrowFontFamily}"
+                                           Foreground="{DynamicResource TextBrush}"
+                                           Margin="0,0,0,12" />
+
+                                <ItemsControl ItemsSource="{Binding TodayRules}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <UniformGrid Columns="2" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Margin="0,0,10,10"
+                                                    Padding="14,12"
+                                                    Background="{DynamicResource HomeSurfaceBrush}"
+                                                    BorderBrush="{DynamicResource HomeSurfaceBorderBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="{DynamicResource SmallCornerRadius}">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <Border Width="34" Height="34" CornerRadius="17" Background="{DynamicResource PrimaryBrush}" VerticalAlignment="Top" Margin="0,0,12,0" Visibility="{Binding IconType, Converter={StaticResource IconTypeToVisibilityConverter}, ConverterParameter=Supervision}">
+                                                        <Path Data="M11,1 L17,4 L17,11 C17,15 14,18 11,19 C8,18 5,15 5,11 L5,4 Z" Fill="White" Stretch="Uniform" Width="16" Height="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                    <Border Width="34" Height="34" CornerRadius="17" Background="{DynamicResource PrimaryBrush}" VerticalAlignment="Top" Margin="0,0,12,0" Visibility="{Binding IconType, Converter={StaticResource IconTypeToVisibilityConverter}, ConverterParameter=ScreenTime}">
+                                                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                            <Rectangle Width="18" Height="13" Fill="White" RadiusX="1.5" RadiusY="1.5" />
+                                                            <Rectangle Width="6" Height="2.5" Fill="White" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                                                        </StackPanel>
+                                                    </Border>
+                                                    <Border Width="34" Height="34" CornerRadius="17" Background="{DynamicResource PrimaryBrush}" VerticalAlignment="Top" Margin="0,0,12,0" Visibility="{Binding IconType, Converter={StaticResource IconTypeToVisibilityConverter}, ConverterParameter=Gaming}">
+                                                        <Canvas Width="22" Height="13" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                            <Rectangle Canvas.Left="0" Canvas.Top="0" Width="22" Height="13" Fill="White" RadiusX="6" RadiusY="6" />
+                                                            <Rectangle Canvas.Left="3" Canvas.Top="5.5" Width="6" Height="2" Fill="{DynamicResource PrimaryBrush}" />
+                                                            <Rectangle Canvas.Left="5" Canvas.Top="3.5" Width="2" Height="6" Fill="{DynamicResource PrimaryBrush}" />
+                                                            <Ellipse Canvas.Left="14.2" Canvas.Top="1.7" Width="2.6" Height="2.6" Fill="{DynamicResource PrimaryBrush}" />
+                                                            <Ellipse Canvas.Left="14.2" Canvas.Top="8.7" Width="2.6" Height="2.6" Fill="{DynamicResource PrimaryBrush}" />
+                                                            <Ellipse Canvas.Left="11.2" Canvas.Top="5.2" Width="2.6" Height="2.6" Fill="{DynamicResource PrimaryBrush}" />
+                                                            <Ellipse Canvas.Left="17.2" Canvas.Top="5.2" Width="2.6" Height="2.6" Fill="{DynamicResource PrimaryBrush}" />
+                                                        </Canvas>
+                                                    </Border>
+                                                    <Border Width="34" Height="34" CornerRadius="17" Background="{DynamicResource PrimaryBrush}" VerticalAlignment="Top" Margin="0,0,12,0" Visibility="{Binding IconType, Converter={StaticResource IconTypeToVisibilityConverter}, ConverterParameter=Study}">
+                                                        <Path Data="M11,5 C9,3 5,3 3,4 L3,17 C5,16 9,16 11,18 C13,16 17,16 19,17 L19,4 C17,3 13,3 11,5 Z M11,5 L11,18" Fill="White" Stroke="White" StrokeThickness="1" Stretch="Uniform" Width="18" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                    <Border Width="34" Height="34" CornerRadius="17" Background="{DynamicResource PrimaryBrush}" VerticalAlignment="Top" Margin="0,0,12,0" Visibility="{Binding IconType, Converter={StaticResource IconTypeToVisibilityConverter}, ConverterParameter=Bedtime}">
+                                                        <Grid Width="18" Height="18" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                            <Ellipse Width="16" Height="16" Fill="White" />
+                                                            <Ellipse Width="13" Height="13" Fill="{DynamicResource PrimaryBrush}" HorizontalAlignment="Right" VerticalAlignment="Top" />
+                                                        </Grid>
+                                                    </Border>
+                                                    <Border Width="34" Height="34" CornerRadius="17" Background="{DynamicResource PrimaryBrush}" VerticalAlignment="Top" Margin="0,0,12,0" Visibility="{Binding IconType, Converter={StaticResource IconTypeToVisibilityConverter}, ConverterParameter=AppLimit}">
+                                                        <Path Data="M3,2 L15,2 C15,7 11,9 9,10 C11,11 15,13 15,18 L3,18 C3,13 7,11 9,10 C7,9 3,7 3,2 Z" Fill="White" Stretch="Uniform" Width="14" Height="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                    <Border Width="34" Height="24" CornerRadius="7" Background="{DynamicResource PrimaryBrush}" VerticalAlignment="Top" Margin="0,5,12,0" Visibility="{Binding IconType, Converter={StaticResource IconTypeToVisibilityConverter}, ConverterParameter=YouTube}">
+                                                        <Polygon Points="0,0 0,12 10,6" Fill="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                    <StackPanel Grid.Column="1">
+                                                        <TextBlock Text="{Binding Label}"
+                                                                   Foreground="{DynamicResource MutedBrush}"
+                                                                   FontSize="12" />
+                                                        <TextBlock Text="{Binding Value}"
+                                                                   TextWrapping="Wrap"
+                                                                   FontSize="13"
+                                                                   FontWeight="SemiBold"
+                                                                   LineHeight="18"
+                                                                   Margin="0,4,0,0">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsEmphasis}" Value="True">
+                                                                            <Setter Property="Foreground" Value="{DynamicResource PrimaryDarkBrush}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                        <ProgressBar Style="{StaticResource GuardiProgressBar}"
+                                                                     Value="{Binding Progress, Mode=OneWay}"
+                                                                     Maximum="100"
+                                                                     Height="4"
+                                                                     Margin="0,8,0,0"
+                                                                     Visibility="{Binding ShowProgress, Converter={StaticResource BoolToVisibility}}" />
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Column="1"
+                                Style="{StaticResource GlassCard}"
+                                Padding="24"
+                                Background="{DynamicResource CardBrush}"
+                                BorderBrush="{DynamicResource SkyBorderBrush}">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Discipline"
+                                           FontSize="16"
+                                           FontWeight="Bold"
+                                           Foreground="{DynamicResource TextBrush}" />
+                                <TextBlock Text="Infraction counter"
+                                           Foreground="{DynamicResource MutedBrush}"
+                                           FontSize="12"
+                                           Margin="0,4,0,18" />
+
+                                <Grid Margin="0,0,0,16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Width="72"
+                                            Height="72"
+                                            CornerRadius="20"
+                                            Background="{DynamicResource PrimaryBrush}"
+                                            VerticalAlignment="Center"
+                                            Margin="0,0,16,0">
+                                        <TextBlock Text="{Binding InfractionCount}"
+                                                   Foreground="White"
+                                                   FontSize="28"
+                                                   FontWeight="Bold"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center" />
+                                    </Border>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="current infractions"
+                                                   Foreground="{DynamicResource MutedBrush}"
+                                                   FontSize="12" />
+                                        <TextBlock Text="{Binding DisciplineProgressText}"
+                                                   Foreground="{DynamicResource TextBrush}"
+                                                   FontSize="14"
+                                                   FontWeight="SemiBold"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,4,0,0" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <ProgressBar Style="{StaticResource GuardiProgressBar}"
+                                             Value="{Binding DisciplineProgressValue, Mode=OneWay}"
+                                             Maximum="100"
+                                             Margin="0,0,0,14"
+                                             Visibility="{Binding ShowDisciplineProgress, Converter={StaticResource BoolToVisibility}}" />
+
+                                <Border Background="{DynamicResource HomeSurfaceBrush}"
+                                        BorderBrush="{DynamicResource HomeSurfaceBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="18"
+                                        Padding="14,12">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding DisciplineModeStatus}"
+                                                   Foreground="{DynamicResource TextBrush}"
+                                                   FontWeight="SemiBold"
+                                                   FontSize="13"
+                                                   TextWrapping="Wrap" />
+                                        <StackPanel Margin="0,8,0,0"
+                                                    Visibility="{Binding ShowPunishmentCountdown, Converter={StaticResource BoolToVisibility}}">
+                                            <TextBlock Text="{Binding PunishmentDeescalationLabel}"
+                                                       Foreground="{DynamicResource MutedBrush}"
+                                                       FontSize="11" />
+                                            <TextBlock Text="{Binding PunishmentDeescalationCountdown}"
+                                                       Foreground="{DynamicResource PrimaryDarkBrush}"
+                                                       FontSize="18"
+                                                       FontWeight="Bold"
+                                                       Margin="0,2,0,0" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <Border Grid.Row="2"
+                            Grid.Column="1"
+                            Style="{StaticResource GlassCard}"
+                            Padding="24"
+                            Background="{DynamicResource CardBrush}"
+                            BorderBrush="{DynamicResource SkyBorderBrush}"
+                            Margin="0,0,0,16"
+                            Visibility="{Binding ShowAppTimeLimitsCard, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel>
+                            <TextBlock Text="{Binding AppTimeLimitsCardTitle}"
+                                       FontSize="16"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource TextBrush}" />
+                            <TextBlock Text="{Binding AppTimeLimitsCardSubtitle}"
+                                       Foreground="{DynamicResource MutedBrush}"
+                                       FontSize="12"
+                                       Margin="0,4,0,16" />
+
+                            <TextBlock Text="{Binding AppTimeLimitsEmptyMessage}"
+                                       Foreground="{DynamicResource MutedBrush}"
+                                       FontSize="13"
+                                       TextWrapping="Wrap"
+                                       LineHeight="18"
+                                       Visibility="{Binding ShowAppTimeLimitsEmpty, Converter={StaticResource BoolToVisibility}}" />
+
+                            <ItemsControl ItemsSource="{Binding AppTimeLimitRules}"
+                                          Visibility="{Binding ShowAppTimeLimitsEmpty, Converter={StaticResource BoolToVisibilityInverse}}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Margin="0,0,0,10"
+                                                Padding="14,12"
+                                                Background="{DynamicResource HomeSurfaceBrush}"
+                                                BorderBrush="{DynamicResource HomeSurfaceBorderBrush}"
+                                                BorderThickness="1"
+                                                CornerRadius="{DynamicResource SmallCornerRadius}">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <Border Width="34" Height="34"
+                                                        CornerRadius="17"
+                                                        Background="{DynamicResource HomeSurfaceBrush}"
+                                                        VerticalAlignment="Top"
+                                                        Margin="0,0,12,0">
+                                                    <TextBlock Text="{Binding IconGlyph}"
+                                                               Foreground="{DynamicResource PrimaryDarkBrush}"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center"
+                                                               FontSize="11"
+                                                               FontWeight="Bold" />
+                                                </Border>
+                                                <StackPanel Grid.Column="1">
+                                                    <TextBlock Text="{Binding Label}"
+                                                               Foreground="{DynamicResource TextBrush}"
+                                                               FontSize="14"
+                                                               FontWeight="SemiBold"
+                                                               TextWrapping="Wrap" />
+                                                    <TextBlock Text="{Binding Value}"
+                                                               TextWrapping="Wrap"
+                                                               FontSize="12"
+                                                               FontWeight="SemiBold"
+                                                               Margin="0,4,0,0">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsEmphasis}" Value="True">
+                                                                        <Setter Property="Foreground" Value="{DynamicResource PrimaryDarkBrush}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                    <ProgressBar Style="{StaticResource GuardiProgressBar}"
+                                                                 Value="{Binding Progress, Mode=OneWay}"
+                                                                 Maximum="100"
+                                                                 Height="4"
+                                                                 Margin="0,8,0,0"
+                                                                 Visibility="{Binding ShowProgress, Converter={StaticResource BoolToVisibility}}" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Row="3"
+                            Background="{DynamicResource LockOverlayGradient}"
+                            CornerRadius="{DynamicResource CardCornerRadius}"
+                            Padding="34,28"
+                            Margin="0,0,0,20"
+                            BorderBrush="{DynamicResource GlassBorderBrush}"
+                            BorderThickness="1"
+                            Visibility="{Binding IsKioskActive, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel HorizontalAlignment="Center">
+                            <TextBlock Text="{x:Static prof:KioskCopy.AppsTitle}"
+                                       FontSize="22"
+                                       FontWeight="Bold"
+                                       Foreground="White"
+                                       HorizontalAlignment="Center"
+                                       TextAlignment="Center" />
+                            <TextBlock Text="{x:Static prof:KioskCopy.AppsHint}"
+                                       FontSize="14"
+                                       Foreground="{DynamicResource OnPrimaryMutedBrush}"
+                                       TextWrapping="Wrap"
+                                       TextAlignment="Center"
+                                       HorizontalAlignment="Center"
+                                       MaxWidth="640"
+                                       Margin="0,12,0,22" />
+                            <Button Content="{x:Static prof:KioskCopy.AccessAppsButton}"
+                                    Style="{StaticResource LockDismissButton}"
+                                    Command="{Binding NavigateToKioskAppsCommand}"
+                                    Padding="28,16"
+                                    FontSize="16"
+                                    FontWeight="Bold"
+                                    HorizontalAlignment="Center">
+                                <Button.Effect>
+                                    <DropShadowEffect Color="#000000" BlurRadius="12" ShadowDepth="2" Opacity="0.2"/>
+                                </Button.Effect>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+
+                    <StackPanel Grid.Row="4" Grid.ColumnSpan="2">
+                        <Border Style="{StaticResource GlassCard}"
+                                Padding="24"
+                                Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="{Binding LocalModeBannerTitle}"
+                                           FontSize="15"
+                                           FontWeight="Bold"
+                                           Foreground="{DynamicResource TextBrush}" />
+                                <TextBlock Text="{Binding LocalModeBannerBody}"
+                                           FontSize="13"
+                                           Foreground="{DynamicResource MutedBrush}"
+                                           Margin="0,6,0,0"
+                                           TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding LocalSyncWarning}"
+                                           Foreground="#B45309"
+                                           FontSize="12"
+                                           Margin="0,8,0,0"
+                                           TextWrapping="Wrap" />
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,16,0,0">
+                                    <Button Content="{Binding LocalModeButtonLabel}"
+                                            Style="{StaticResource PrimaryButton}"
+                                            Command="{Binding ToggleLocalModeCommand}"
+                                            Margin="0,0,12,0" />
+                                    <Button Content="{x:Static prof:LocalModeCopy.ManageButton}"
+                                            Style="{StaticResource GhostButton}"
+                                            Command="{Binding NavigateToLocalSettingsCommand}"
+                                            Visibility="{Binding IsLocalMode, Converter={StaticResource BoolToVisibility}}"
+                                            Padding="18,12" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Text="{Binding RestrictionsTitle}"
+                                   FontSize="16"
+                                   FontWeight="Bold"
+                                   FontFamily="{DynamicResource AppEyebrowFontFamily}"
+                                   Foreground="{DynamicResource OnPrimaryBrush}"
+                                   Margin="2,0,0,10" />
+
+                        <Border Style="{StaticResource GlassCardCompact}"
+                                Padding="10"
+                                Margin="0,0,0,16">
+                            <ItemsControl ItemsSource="{Binding Restrictions}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="{DynamicResource GlassDividerBrush}"
+                                                BorderThickness="0,0,0,1">
+                                            <Button Command="{Binding DataContext.OpenRestrictionDetailCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"
+                                                    Style="{StaticResource RestrictionCardButton}"
+                                                    HorizontalAlignment="Stretch">
+                                                <Grid Margin="20,0"
+                                                      HorizontalAlignment="Stretch">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="96" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <StackPanel Grid.Column="0"
+                                                                Margin="0,16,18,16"
+                                                                HorizontalAlignment="Left"
+                                                                VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Title}"
+                                                                   Foreground="{DynamicResource TextBrush}"
+                                                                   FontWeight="SemiBold"
+                                                                   FontSize="15"
+                                                                   TextAlignment="Left" />
+                                                        <TextBlock Text="{Binding Description}"
+                                                                   Foreground="{DynamicResource MutedBrush}"
+                                                                   FontSize="12"
+                                                                   Margin="0,4,0,0"
+                                                                   TextWrapping="Wrap"
+                                                                   TextAlignment="Left" />
+                                                    </StackPanel>
+
+                                                    <Grid Grid.Column="1"
+                                                          VerticalAlignment="Center"
+                                                          HorizontalAlignment="Right">
+                                                        <Border Width="72"
+                                                                Height="38"
+                                                                HorizontalAlignment="Right"
+                                                                VerticalAlignment="Center"
+                                                                CornerRadius="19"
+                                                                Visibility="{Binding DataContext.IsSubMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibilityInverse}}">
+                                                            <Border.Style>
+                                                                <Style TargetType="Border">
+                                                                    <Setter Property="Background" Value="{DynamicResource HomeSurfaceBrush}" />
+                                                                    <Setter Property="BorderBrush" Value="{DynamicResource HomeSurfaceBorderBrush}" />
+                                                                    <Setter Property="BorderThickness" Value="1" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                                            <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Border.Style>
+                                                            <TextBlock Text="{Binding StatusLabel}"
+                                                                       HorizontalAlignment="Center"
+                                                                       VerticalAlignment="Center"
+                                                                       TextAlignment="Center"
+                                                                       FontSize="11"
+                                                                       FontWeight="Bold">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                        </Border>
+
+                                                        <Border Width="34"
+                                                                Height="34"
+                                                                CornerRadius="17"
+                                                                HorizontalAlignment="Right"
+                                                                VerticalAlignment="Center"
+                                                                Visibility="{Binding DataContext.IsSubMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}">
+                                                            <Border.Style>
+                                                                <Style TargetType="Border">
+                                                                    <Setter Property="Background" Value="{DynamicResource HomeSurfaceBrush}" />
+                                                                    <Setter Property="BorderBrush" Value="{DynamicResource HomeSurfaceBorderBrush}" />
+                                                                    <Setter Property="BorderThickness" Value="1" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                                            <Setter Property="Background" Value="{DynamicResource PrimaryBrush}" />
+                                                                            <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Border.Style>
+                                                            <TextBlock HorizontalAlignment="Center"
+                                                                       VerticalAlignment="Center"
+                                                                       FontFamily="Segoe MDL2 Assets"
+                                                                       FontSize="15">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Text" Value="&#xE785;" />
+                                                                        <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                                                <Setter Property="Text" Value="&#xE72E;" />
+                                                                                <Setter Property="Foreground" Value="White" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                        </Border>
+                                                    </Grid>
+                                                </Grid>
+                                            </Button>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Border>
+
+                        <Button Content="{x:Static prof:UiCopy.ResetEnrollmentButton}"
+                                Style="{StaticResource SubtleButton}"
+                                Command="{Binding ResetEnrollmentCommand}"
+                                HorizontalAlignment="Center"
+                                Margin="0,8,0,0"
+                                Padding="12,6"
+                                FontSize="11"
+                                Opacity="0.65" />
+
+                        <TextBlock Text="{Binding AppVersion}"
+                                   Foreground="{DynamicResource OnPrimaryMutedBrush}"
+                                   FontSize="10"
+                                   HorizontalAlignment="Right"
+                                   Margin="0,24,0,0"
+                                   Opacity="0.7" />
+                        </StackPanel>
+                </Grid>
+            </ScrollViewer>
+            <!-- Blocked apps / websites / play time detail -->
+            <ScrollViewer Style="{StaticResource GuardiScrollViewer}"
+                          Padding="36,22,36,28"
+                          Visibility="{Binding IsDetailPage, Converter={StaticResource BoolToVisibility}}">
+                <StackPanel MaxWidth="720" HorizontalAlignment="Center" CacheMode="BitmapCache">
+                    <views:GuardiMascot Width="96" Height="110"
+                                         HorizontalAlignment="Center"
+                                         Margin="0,0,0,16"
+                                         Visibility="{Binding ShowMascot, Converter={StaticResource BoolToVisibility}}" />
+                    <TextBlock Text="{Binding DetailPageTitle}"
+                               FontSize="28"
+                               FontWeight="Bold"
+                               Foreground="{DynamicResource OnPrimaryBrush}"
+                               Margin="0,0,0,8" />
+                    <TextBlock Text="{Binding DetailPageSubtitle}"
+                               Foreground="{DynamicResource OnPrimaryMutedBrush}"
+                               FontSize="16"
+                               Margin="0,0,0,24" />
+
+                    <Border Style="{StaticResource GlassCard}"
+                            Padding="22"
+                            Visibility="{Binding DetailItems.Count, Converter={StaticResource CountToVisibility}}">
+                        <ItemsControl ItemsSource="{Binding DetailItems}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{DynamicResource GlassDividerBrush}"
+                                            BorderThickness="0,0,0,1"
+                                            Padding="0,14">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="•"
+                                                       FontSize="22"
+                                                       Foreground="{DynamicResource PrimaryBrush}"
+                                                       Margin="0,0,14,0"
+                                                       VerticalAlignment="Center"
+                                                       Visibility="{Binding DataContext.IsSubMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibilityInverse}}" />
+                                            <Border Width="32"
+                                                    Height="32"
+                                                    CornerRadius="16"
+                                                    Background="{DynamicResource HomeSurfaceBrush}"
+                                                    Margin="0,0,14,0"
+                                                    VerticalAlignment="Center"
+                                                    Visibility="{Binding DataContext.IsSubMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}">
+                                                <TextBlock Text="{Binding Converter={StaticResource InitialLetterConverter}}"
+                                                           FontSize="13"
+                                                           FontWeight="Bold"
+                                                           Foreground="{DynamicResource PrimaryDarkBrush}"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center" />
+                                            </Border>
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding}"
+                                                       FontSize="18"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       VerticalAlignment="Center"
+                                                       TextWrapping="Wrap" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Border>
+
+                    <!-- Play time: global summary -->
+                    <Border Style="{StaticResource GlassCard}"
+                            Padding="24"
+                            Visibility="{Binding IsPlayTimeDetail, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding PlayTimeDetailTotalLabel}"
+                                               Foreground="{DynamicResource MutedBrush}"
+                                               FontSize="14" />
+                                    <TextBlock Text="{Binding GamingUsedLabel}"
+                                               FontSize="38"
+                                               FontWeight="Bold"
+                                               Foreground="{DynamicResource TextBrush}"
+                                               Margin="0,4,0,0" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                    <TextBlock Text="Daily limit"
+                                               Foreground="{DynamicResource MutedBrush}"
+                                               FontSize="14"
+                                               HorizontalAlignment="Right" />
+                                    <TextBlock Text="{Binding GamingLimitLabel}"
+                                               FontSize="26"
+                                               FontWeight="Bold"
+                                               Foreground="{DynamicResource PrimaryBrush}"
+                                               HorizontalAlignment="Right"
+                                               Margin="0,4,0,0" />
+                                </StackPanel>
+                            </Grid>
+                            <ProgressBar Style="{StaticResource GuardiProgressBar}"
+                                         Value="{Binding GamingProgress, Mode=OneWay}"
+                                         Maximum="100"
+                                         Margin="0,16,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- YouTube time: global summary -->
+                    <Border Style="{StaticResource GlassCard}"
+                            Padding="24"
+                            Visibility="{Binding IsYoutubeTimeDetail, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding YoutubeDetailTotalLabel}"
+                                               Foreground="{DynamicResource MutedBrush}"
+                                               FontSize="14" />
+                                    <TextBlock Text="{Binding YoutubeUsedLabel}"
+                                               FontSize="38"
+                                               FontWeight="Bold"
+                                               Foreground="{DynamicResource TextBrush}"
+                                               Margin="0,4,0,0" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                    <TextBlock Text="Daily limit"
+                                               Foreground="{DynamicResource MutedBrush}"
+                                               FontSize="14"
+                                               HorizontalAlignment="Right" />
+                                    <TextBlock Text="{Binding YoutubeLimitLabel}"
+                                               FontSize="26"
+                                               FontWeight="Bold"
+                                               Foreground="{DynamicResource PrimaryBrush}"
+                                               HorizontalAlignment="Right"
+                                               Margin="0,4,0,0" />
+                                </StackPanel>
+                            </Grid>
+                            <ProgressBar Style="{StaticResource GuardiProgressBar}"
+                                         Value="{Binding YoutubeProgress, Mode=OneWay}"
+                                         Maximum="100"
+                                         Margin="0,16,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Play time: per-game breakdown -->
+                    <Border Style="{StaticResource GlassCard}"
+                            Padding="22"
+                            Margin="0,12,0,0"
+                            Visibility="{Binding GameUsages.Count, Converter={StaticResource CountToVisibility}}">
+                        <ItemsControl ItemsSource="{Binding GameUsages}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{DynamicResource GlassDividerBrush}"
+                                            BorderThickness="0,0,0,1"
+                                            Padding="0,14">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding DataContext.GameListIconGlyph, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                       FontSize="20"
+                                                       Margin="0,0,14,0"
+                                                       VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding DisplayName}"
+                                                       FontSize="18"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       VerticalAlignment="Center"
+                                                       TextWrapping="Wrap" />
+                                            <TextBlock Grid.Column="2"
+                                                       Text="{Binding UsageLabel}"
+                                                       FontSize="17"
+                                                       FontWeight="Bold"
+                                                       Foreground="{DynamicResource PrimaryBrush}"
+                                                       VerticalAlignment="Center" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Border>
+
+                    <Border Padding="28"
+                            Margin="0,8,0,0">
+                        <Border.Style>
+                            <Style TargetType="Border" BasedOn="{StaticResource GlassCard}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding IsBlockedListDetail}" Value="True" />
+                                            <Condition Binding="{Binding DetailItems.Count}" Value="0" />
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </MultiDataTrigger>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding IsPlayTimeDetail}" Value="True" />
+                                            <Condition Binding="{Binding GameUsages.Count}" Value="0" />
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </MultiDataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <TextBlock Text="{Binding DetailEmptyMessage}"
+                                   TextWrapping="Wrap"
+                                   FontSize="16"
+                                   Foreground="{DynamicResource TextBrush}"
+                                   TextAlignment="Center" />
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- Local settings (local mode only) -->
+            <views:LocalSettingsPanel DataContext="{Binding}"
+                                      Visibility="{Binding IsLocalAreaPage, Converter={StaticResource BoolToVisibility}}" />
+
+            <!-- Kiosk approved apps -->
+            <ScrollViewer Style="{StaticResource GuardiScrollViewer}"
+                          Padding="36,22,36,28"
+                          Visibility="{Binding IsKioskAppsPage, Converter={StaticResource BoolToVisibility}}">
+                <StackPanel MaxWidth="980" HorizontalAlignment="Center" CacheMode="BitmapCache">
+                    <views:GuardiMascot Width="96" Height="110"
+                                         HorizontalAlignment="Center"
+                                         Margin="0,0,0,16"
+                                         Visibility="{Binding ShowMascot, Converter={StaticResource BoolToVisibility}}" />
+
+                    <TextBlock Text="{x:Static prof:KioskCopy.AppsHint}"
+                               Foreground="{DynamicResource OnPrimaryMutedBrush}"
+                               FontSize="16"
+                               HorizontalAlignment="Center"
+                               TextAlignment="Center"
+                               TextWrapping="Wrap"
+                               MaxWidth="640"
+                               Margin="0,0,0,28" />
+
+                    <ItemsControl ItemsSource="{Binding KioskApps}"
+                                  HorizontalAlignment="Center"
+                                  Visibility="{Binding HasKioskApps, Converter={StaticResource BoolToVisibility}}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel HorizontalAlignment="Center" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Style="{StaticResource RestrictionCardButton}"
+                                        Command="{Binding DataContext.LaunchKioskAppCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding}"
+                                        Width="200"
+                                        Height="150"
+                                        Margin="10">
+                                    <Border Style="{StaticResource GlassCard}"
+                                            Padding="18">
+                                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                            <Grid Width="48" Height="48" Margin="0,0,0,4">
+                                                <Image Source="{Binding IconImage}"
+                                                       Width="48"
+                                                       Height="48"
+                                                       Stretch="Uniform"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       Visibility="{Binding HasIconImage, Converter={StaticResource BoolToVisibility}}" />
+                                                <TextBlock Text="{Binding IconGlyph}"
+                                                           FontSize="46"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center"
+                                                           Visibility="{Binding HasIconImage, Converter={StaticResource BoolToVisibilityInverse}}" />
+                                            </Grid>
+                                            <TextBlock Text="{Binding Name}"
+                                                       FontSize="16"
+                                                       FontWeight="Bold"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       HorizontalAlignment="Center"
+                                                       TextAlignment="Center"
+                                                       TextWrapping="Wrap"
+                                                       Margin="0,12,0,0" />
+                                            <TextBlock Text="{x:Static prof:KioskCopy.LaunchHint}"
+                                                       FontSize="11"
+                                                       Foreground="{DynamicResource MutedBrush}"
+                                                       HorizontalAlignment="Center"
+                                                       Margin="0,6,0,0" />
+                                        </StackPanel>
+                                    </Border>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <Border Style="{StaticResource GlassCard}"
+                            Padding="36,30"
+                            MaxWidth="560"
+                            Margin="0,8,0,0"
+                            Visibility="{Binding HasKioskApps, Converter={StaticResource BoolToVisibilityInverse}}">
+                        <StackPanel>
+                            <TextBlock Text="Ã°Å¸â€â€™"
+                                       FontSize="44"
+                                       HorizontalAlignment="Center" />
+                            <TextBlock Text="{x:Static prof:KioskCopy.EmptyTitle}"
+                                       FontSize="20"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource TextBrush}"
+                                       HorizontalAlignment="Center"
+                                       TextAlignment="Center"
+                                       TextWrapping="Wrap"
+                                       Margin="0,14,0,0" />
+                            <TextBlock Text="{x:Static prof:KioskCopy.EmptyBody}"
+                                       FontSize="14"
+                                       Foreground="{DynamicResource MutedBrush}"
+                                       HorizontalAlignment="Center"
+                                       TextAlignment="Center"
+                                       TextWrapping="Wrap"
+                                       LineHeight="21"
+                                       Margin="0,10,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <StackPanel HorizontalAlignment="Center" Margin="0,32,0,0">
+                        <Button Content="{x:Static prof:KioskCopy.ExitButton}"
+                                Style="{StaticResource SubtleButton}"
+                                Command="{Binding RequestKioskExitCommand}"
+                                Padding="18,10"
+                                FontSize="13" />
+                        <TextBlock Text="{x:Static prof:KioskCopy.ExitHint}"
+                                   Foreground="{DynamicResource MutedBrush}"
+                                   FontSize="11"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap"
+                                   MaxWidth="320"
+                                   Margin="0,8,0,0" />
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- Enrollment overlay -->
+        <Grid Grid.RowSpan="2"
+              Panel.ZIndex="100"
+              Background="#88000000"
+              Visibility="{Binding ShowEnrollmentOverlay, Converter={StaticResource BoolToVisibility}}"
+              IsHitTestVisible="{Binding ShowEnrollmentOverlay}">
+            <Border Background="{DynamicResource CardBrush}"
+                    CornerRadius="{DynamicResource CardCornerRadius}"
+                    Padding="36"
+                    MaxWidth="520"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center"
+                    BorderBrush="{DynamicResource SkyBorderBrush}"
+                    BorderThickness="1">
+                <StackPanel>
+                    <views:GuardiMascot Width="110" Height="126" HorizontalAlignment="Center"
+                                        Visibility="{Binding ShowMascot, Converter={StaticResource BoolToVisibility}}" />
+                    <Border Width="56" Height="56"
+                            CornerRadius="{DynamicResource SmallCornerRadius}"
+                            Background="{DynamicResource AccentBrush}"
+                            BorderBrush="{DynamicResource SkyBorderBrush}"
+                            BorderThickness="1"
+                            HorizontalAlignment="Center"
+                            Margin="0,0,0,10"
+                            Visibility="{Binding IsMatureUi, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="{Binding HeaderIconGlyph}"
+                                   FontSize="22"
+                                   FontWeight="Bold"
+                                   Foreground="{DynamicResource PrimaryDarkBrush}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Text="{Binding EnrollmentTitle}"
+                               FontSize="28"
+                               FontWeight="Bold"
+                               HorizontalAlignment="Center"
+                               Margin="0,10,0,0" />
+                    <TextBlock Text="{Binding EnrollmentBody}"
+                               TextWrapping="Wrap"
+                               TextAlignment="Center"
+                               Foreground="{DynamicResource MutedBrush}"
+                               Margin="0,10,0,24" />
+
+                    <Border Background="{DynamicResource AccentBrush}" CornerRadius="{DynamicResource SmallCornerRadius}" Padding="14" Margin="0,0,0,18"
+                            BorderBrush="{DynamicResource SkyBorderBrush}" BorderThickness="1">
+                        <TextBlock HorizontalAlignment="Center">
+                            <Run Text="{Binding EnrollmentLevelLabel, Mode=OneWay}" FontWeight="SemiBold" />
+                            <Run Text="{Binding LevelTitle, Mode=OneWay}" Foreground="{DynamicResource PrimaryBrush}" FontWeight="Bold" />
+                        </TextBlock>
+                    </Border>
+
+                    <TextBlock Text="{Binding EnrollmentCodeLabel}" FontWeight="SemiBold" Margin="0,0,0,6" />
+                    <TextBox Text="{Binding EnrollmentCode, UpdateSourceTrigger=PropertyChanged}"
+                             MaxLength="8"
+                             CharacterCasing="Upper"
+                             FontSize="24"
+                             FontWeight="Bold"
+                             HorizontalContentAlignment="Center" />
+
+                    <TextBlock Text="{Binding EnrollmentNameLabel}" FontWeight="SemiBold" Margin="0,16,0,6" />
+                    <TextBox Text="{Binding PcName, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Text="{Binding EnrollmentDetail}"
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource MutedBrush}"
+                               Margin="0,14,0,0"
+                               MinHeight="20"
+                               TextAlignment="Center" />
+
+                    <Button Content="{Binding EnrollmentButton}"
+                            Style="{StaticResource PrimaryButton}"
+                            Command="{Binding EnrollCommand}"
+                            Margin="0,24,0,0"
+                            IsEnabled="{Binding CanEnroll}" />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+        </Border>
+    </Grid>
+</Window>
+

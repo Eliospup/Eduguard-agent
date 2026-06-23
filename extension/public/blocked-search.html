@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Guardi — nope, little one!</title>
+    <link rel="stylesheet" href="guardi-ui.css" />
+    <style>
+      .guardi-blocked-card {
+        max-width: 560px;
+        border-color: var(--guardi-pink-hot);
+        box-shadow: 0 16px 48px var(--guardi-shadow);
+      }
+      .guardi-blocked-title {
+        color: var(--guardi-blue-deep);
+      }
+      .guardi-blocked-btn {
+        display: inline-flex;
+        margin-top: 20px;
+        padding: 12px 24px;
+        border-radius: 999px;
+        border: 3px solid var(--guardi-blue);
+        background: linear-gradient(135deg, var(--guardi-pink) 0%, var(--guardi-sky) 100%);
+        font-family: var(--guardi-font-display);
+        font-weight: 700;
+        font-size: 1rem;
+        color: var(--guardi-text-soft);
+        text-decoration: none;
+        box-shadow: 0 8px 24px var(--guardi-shadow);
+      }
+    </style>
+  </head>
+  <body class="guardi-newtab guardi-blocked-page">
+    <div class="guardi-sky">
+      <main class="guardi-page" role="main">
+        <section class="guardi-card guardi-blocked-card" aria-labelledby="guardi-blocked-title">
+          <img
+            class="guardi-mascot"
+            src="assets/guardi-mascot.svg"
+            width="140"
+            height="158"
+            alt=""
+            aria-hidden="true"
+          />
+          <h1 class="guardi-title guardi-blocked-title" id="guardi-blocked-title" data-guardi="blocked-title">
+            Nope, little one!
+          </h1>
+          <p class="guardi-subtitle" data-guardi="blocked-subtitle">That search is a big no-no.</p>
+          <p class="guardi-body" data-guardi="blocked-body">
+            Guardi caught a grown-up search you are not allowed to make. Your Dom said those words stay
+            off-limits — so Guardi blocked it before anything yucky could show up. Nice try, sweetie, but
+            Guardi is smarter than that!
+          </p>
+          <p class="guardi-body" data-guardi="blocked-footer">
+            This counts as breaking the safety rules. Be a good little one and pick something else.
+          </p>
+          <a class="guardi-blocked-btn" id="guardi-back" href="newtab.html" data-guardi="blocked-button">
+            Take me somewhere safe
+          </a>
+        </section>
+      </main>
+    </div>
+    <script src="guardi-shell.js"></script>
+  </body>
+</html>

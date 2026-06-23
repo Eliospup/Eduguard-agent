@@ -1,0 +1,13 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+publish/
+pack-log.txt
+/dotnet
+Github_token.txt
+.nuget-local-feed/
+.nuget-packages/
+.agents/
+.claude/

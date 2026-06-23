@@ -1,0 +1,55 @@
+<Window x:Class="EduGuardAgent.Views.AppBlockedToastWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="clr-namespace:EduGuardAgent.Views"
+        Title="Guardi"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="NoResize"
+        SizeToContent="WidthAndHeight"
+        ShowInTaskbar="False"
+        Topmost="True"
+        ShowActivated="False">
+    <Border Background="{StaticResource CardBrush}"
+            CornerRadius="16"
+            Padding="14,12"
+            MaxWidth="520"
+            BorderBrush="{StaticResource SkyBorderBrush}"
+            BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect Color="#0369A1"
+                              BlurRadius="20"
+                              ShadowDepth="4"
+                              Opacity="0.3" />
+        </Border.Effect>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <views:GuardiMascot Width="48"
+                                 Height="54"
+                                 Margin="0,0,12,0"
+                                 VerticalAlignment="Center" />
+
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock x:Name="TitleText"
+                           FontSize="15"
+                           FontWeight="Bold"
+                           Foreground="{StaticResource PrimaryDarkBrush}"
+                           TextWrapping="Wrap" />
+
+                <TextBlock x:Name="MessageText"
+                           FontSize="13"
+                           Foreground="{StaticResource TextBrush}"
+                           TextWrapping="Wrap"
+                           Margin="0,4,0,0"
+                           LineHeight="18"
+                           MaxWidth="400" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

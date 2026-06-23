@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Guardi</title>
+    <link rel="stylesheet" href="guardi-ui.css" />
+  </head>
+  <body class="guardi-popup">
+    <section class="guardi-card" aria-labelledby="guardi-popup-title">
+      <img
+        class="guardi-mascot"
+        src="assets/guardi-mascot.svg"
+        width="88"
+        height="100"
+        alt=""
+        aria-hidden="true"
+      />
+      <h1 class="guardi-title" id="guardi-popup-title" data-guardi="popup-title">Hi sweetie!</h1>
+      <p class="guardi-subtitle" data-guardi="popup-subtitle">Guardi's cuddling your browser right now.</p>
+      <p class="guardi-body" data-guardi="popup-body">
+        Yucky pictures get tucked away before you even see them. Stay on nice sites and let Guardi do the
+        grown-up worrying for you.
+      </p>
+      <div class="guardi-badge" role="status">
+        <span class="guardi-badge__dot" aria-hidden="true"></span>
+        <span data-guardi="popup-badge">Shield snuggled on!</span>
+      </div>
+    </section>
+    <script src="guardi-shell.js"></script>
+  </body>
+</html>

@@ -1,0 +1,7 @@
+{
+  "chromiumExtensionId": "REPLACE_WITH_CHROME_WEB_STORE_ID",
+  "chromeUpdateUrl": "https://clients2.google.com/service/update2/crx",
+  "firefoxAddonId": "image-shield@guardi.app",
+  "firefoxInstallUrl": "REPLACE_WITH_SIGNED_XPI_HTTPS_URL",
+  "version": "0.6.9"
+}

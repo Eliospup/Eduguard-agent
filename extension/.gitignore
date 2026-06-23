@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.amo-credentials.local
+host/*.crx
+host/*.xpi
+keys/dev.pem
+releases/
+web-ext-output/
+# Model weights are downloaded locally, not committed (see public/models/README.md)
+public/models/*.bin
+public/models/model.json
