@@ -19,9 +19,9 @@
                     <Binding Path="Slug" />
                   </MultiBinding>
                 </DataTrigger.Binding>
-                <Setter Property="Background" Value="{StaticResource SegmentActiveBrush}" />
-                <Setter Property="Foreground" Value="{StaticResource SegmentActiveForegroundBrush}" />
-                <Setter Property="BorderBrush" Value="{StaticResource SegmentActiveBrush}" />
+                <Setter Property="Background" Value="{DynamicResource SegmentActiveBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource SegmentActiveForegroundBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource SegmentActiveBrush}" />
               </DataTrigger>
             </Style.Triggers>
           </Style>
@@ -44,9 +44,9 @@
                     <Binding Path="Slug" />
                   </MultiBinding>
                 </DataTrigger.Binding>
-                <Setter Property="Background" Value="{StaticResource SegmentActiveBrush}" />
-                <Setter Property="Foreground" Value="{StaticResource SegmentActiveForegroundBrush}" />
-                <Setter Property="BorderBrush" Value="{StaticResource SegmentActiveBrush}" />
+                <Setter Property="Background" Value="{DynamicResource SegmentActiveBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource SegmentActiveForegroundBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource SegmentActiveBrush}" />
               </DataTrigger>
             </Style.Triggers>
           </Style>
@@ -85,7 +85,7 @@
         <StackPanel Grid.Column="2" VerticalAlignment="Center">
           <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
           <TextBlock Text="{Binding Path}"
-                     Foreground="{StaticResource MutedBrush}"
+                     Foreground="{DynamicResource MutedBrush}"
                      FontSize="11"
                      TextWrapping="Wrap" />
         </StackPanel>
@@ -102,7 +102,7 @@
         <StackPanel Grid.Column="0" Margin="0,0,12,0">
           <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
           <TextBlock Text="{Binding Exe}"
-                     Foreground="{StaticResource MutedBrush}"
+                     Foreground="{DynamicResource MutedBrush}"
                      FontSize="11" />
         </StackPanel>
         <TextBox Grid.Column="1"
@@ -119,14 +119,55 @@
       </Grid>
     </DataTemplate>
 
-    <DataTemplate x:Key="LocalWeeklyBedtimeDayTemplate">
+    <DataTemplate x:Key="LocalCustomGameTemplate">
+      <Grid Margin="0,8">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <StackPanel Grid.Column="0" Margin="0,0,12,0">
+          <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+          <TextBlock Text="{Binding Exe}"
+                     Foreground="{DynamicResource MutedBrush}"
+                     FontSize="11" />
+        </StackPanel>
+        <Button Grid.Column="1"
+                Content="Remove"
+                Style="{StaticResource SubtleButton}"
+                Command="{Binding DataContext.RemoveLocalCustomGameCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                CommandParameter="{Binding}"
+                Padding="12,6" />
+      </Grid>
+    </DataTemplate>
+
+    <DataTemplate x:Key="LocalWebCategoryTemplate">
       <Grid Margin="0,6">
         <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
           <ColumnDefinition Width="Auto" />
-          <ColumnDefinition Width="52" />
-          <ColumnDefinition Width="72" />
+        </Grid.ColumnDefinitions>
+        <StackPanel Grid.Column="0" Margin="0,0,12,0" VerticalAlignment="Center">
+          <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+          <TextBlock Text="{Binding Description}"
+                     Foreground="{DynamicResource MutedBrush}"
+                     FontSize="11"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+        <CheckBox Grid.Column="1"
+                  Style="{StaticResource ToggleSwitch}"
+                  VerticalAlignment="Center"
+                  IsChecked="{Binding IsBlocked, Mode=TwoWay}" />
+      </Grid>
+    </DataTemplate>
+
+    <DataTemplate x:Key="LocalWeeklyBedtimeDayTemplate">
+      <Grid Margin="0,4">
+        <Grid.ColumnDefinitions>
           <ColumnDefinition Width="Auto" />
-          <ColumnDefinition Width="72" />
+          <ColumnDefinition Width="48" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="28" />
+          <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
         <CheckBox Grid.Column="0"
                   Style="{StaticResource ToggleSwitch}"
@@ -139,29 +180,38 @@
                    FontWeight="SemiBold" />
         <TextBox Grid.Column="2"
                  Text="{Binding BedtimeTime, UpdateSourceTrigger=PropertyChanged}"
-                 Margin="8,0"
+                 Height="40"
+                 Padding="8,0"
+                 VerticalAlignment="Center"
+                 VerticalContentAlignment="Center"
+                 HorizontalContentAlignment="Center"
                  IsEnabled="{Binding OverrideEnabled}"
                  ToolTip="{x:Static prof:LocalModeCopy.BedtimeTime}" />
         <TextBlock Grid.Column="3"
-                   Text="â†’"
+                   Text="&#x2192;"
                    VerticalAlignment="Center"
-                   Foreground="{StaticResource MutedBrush}"
-                   Margin="0,0,8,0" />
+                   HorizontalAlignment="Center"
+                   Foreground="{DynamicResource MutedBrush}" />
         <TextBox Grid.Column="4"
                  Text="{Binding WakeTime, UpdateSourceTrigger=PropertyChanged}"
+                 Height="40"
+                 Padding="8,0"
+                 VerticalAlignment="Center"
+                 VerticalContentAlignment="Center"
+                 HorizontalContentAlignment="Center"
                  IsEnabled="{Binding OverrideEnabled}"
                  ToolTip="{x:Static prof:LocalModeCopy.WakeTime}" />
       </Grid>
     </DataTemplate>
 
     <DataTemplate x:Key="LocalWeeklyStudyDayTemplate">
-      <Grid Margin="0,6">
+      <Grid Margin="0,4">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="Auto" />
-          <ColumnDefinition Width="52" />
-          <ColumnDefinition Width="72" />
-          <ColumnDefinition Width="Auto" />
-          <ColumnDefinition Width="72" />
+          <ColumnDefinition Width="48" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="28" />
+          <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
         <CheckBox Grid.Column="0"
                   Style="{StaticResource ToggleSwitch}"
@@ -174,16 +224,25 @@
                    FontWeight="SemiBold" />
         <TextBox Grid.Column="2"
                  Text="{Binding StartTime, UpdateSourceTrigger=PropertyChanged}"
-                 Margin="8,0"
+                 Height="40"
+                 Padding="8,0"
+                 VerticalAlignment="Center"
+                 VerticalContentAlignment="Center"
+                 HorizontalContentAlignment="Center"
                  IsEnabled="{Binding OverrideEnabled}"
                  ToolTip="{x:Static prof:LocalModeCopy.StudyStart}" />
         <TextBlock Grid.Column="3"
-                   Text="â†’"
+                   Text="&#x2192;"
                    VerticalAlignment="Center"
-                   Foreground="{StaticResource MutedBrush}"
-                   Margin="0,0,8,0" />
+                   HorizontalAlignment="Center"
+                   Foreground="{DynamicResource MutedBrush}" />
         <TextBox Grid.Column="4"
                  Text="{Binding EndTime, UpdateSourceTrigger=PropertyChanged}"
+                 Height="40"
+                 Padding="8,0"
+                 VerticalAlignment="Center"
+                 VerticalContentAlignment="Center"
+                 HorizontalContentAlignment="Center"
                  IsEnabled="{Binding OverrideEnabled}"
                  ToolTip="{x:Static prof:LocalModeCopy.StudyEnd}" />
       </Grid>
@@ -194,7 +253,7 @@
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="Auto" />
           <ColumnDefinition Width="52" />
-          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="120" />
           <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
         <CheckBox Grid.Column="0"
@@ -209,11 +268,16 @@
         <TextBox Grid.Column="2"
                  Text="{Binding Minutes, UpdateSourceTrigger=PropertyChanged}"
                  Margin="8,0"
+                 Height="42"
+                 Padding="12,0"
+                 VerticalAlignment="Center"
+                 VerticalContentAlignment="Center"
+                 HorizontalContentAlignment="Center"
                  IsEnabled="{Binding OverrideEnabled}" />
         <TextBlock Grid.Column="3"
                    Text="min"
                    VerticalAlignment="Center"
-                   Foreground="{StaticResource MutedBrush}" />
+                   Foreground="{DynamicResource MutedBrush}" />
       </Grid>
     </DataTemplate>
   </UserControl.Resources>
@@ -224,10 +288,10 @@
       <StackPanel Visibility="{Binding IsLocalHubPage, Converter={StaticResource BoolToVisibility}}">
         <TextBlock Text="{Binding LocalHubTitle}"
                    FontSize="28" FontWeight="Bold"
-                   Foreground="{StaticResource OnPrimaryBrush}"
+                   Foreground="{DynamicResource OnPrimaryBrush}"
                    Margin="0,0,0,6" />
         <TextBlock Text="{Binding LocalHubSubtitle}"
-                   Foreground="{StaticResource OnPrimaryMutedBrush}"
+                   Foreground="{DynamicResource OnPrimaryMutedBrush}"
                    FontSize="15" TextWrapping="Wrap" Margin="0,0,0,22" />
 
         <Border Style="{StaticResource GlassCardCompact}"
@@ -235,7 +299,7 @@
           <ItemsControl ItemsSource="{Binding LocalHubCards}">
             <ItemsControl.ItemTemplate>
               <DataTemplate>
-                <Border BorderBrush="{StaticResource GlassDividerBrush}"
+                <Border BorderBrush="{DynamicResource GlassDividerBrush}"
                         BorderThickness="0,0,0,1">
                   <Button Command="{Binding DataContext.OpenLocalSectionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                           CommandParameter="{Binding Key}"
@@ -256,9 +320,9 @@
                         <TextBlock Text="{Binding Title}"
                                    FontWeight="SemiBold"
                                    FontSize="15"
-                                   Foreground="{StaticResource TextBrush}" />
+                                   Foreground="{DynamicResource TextBrush}" />
                         <TextBlock Text="{Binding Subtitle}"
-                                   Foreground="{StaticResource MutedBrush}"
+                                   Foreground="{DynamicResource MutedBrush}"
                                    FontSize="12"
                                    Margin="0,3,0,0"
                                    TextTrimming="CharacterEllipsis"
@@ -266,10 +330,10 @@
                       </StackPanel>
 
                       <TextBlock Grid.Column="2"
-                                 Text="â€º"
+                                 Text="&#x203A;"
                                  FontSize="22"
                                  FontWeight="SemiBold"
-                                 Foreground="{StaticResource PrimaryDarkBrush}"
+                                 Foreground="{DynamicResource PrimaryDarkBrush}"
                                  VerticalAlignment="Center"
                                  HorizontalAlignment="Right" />
                     </Grid>
@@ -286,10 +350,10 @@
         <TextBlock Text="{Binding LocalSectionTitle}"
                    FontSize="26"
                    FontWeight="Bold"
-                   Foreground="{StaticResource OnPrimaryBrush}"
+                   Foreground="{DynamicResource OnPrimaryBrush}"
                    Margin="0,0,0,8" />
         <TextBlock Text="{Binding LocalSectionSubtitle}"
-                   Foreground="{StaticResource OnPrimaryMutedBrush}" FontSize="14"
+                   Foreground="{DynamicResource OnPrimaryMutedBrush}" FontSize="14"
                    TextWrapping="Wrap" Margin="0,0,0,16" />
 
         <!-- Editing mode -->
@@ -297,10 +361,10 @@
                 Visibility="{Binding LocalSectionUsesModePicker, Converter={StaticResource BoolToVisibility}}">
           <StackPanel>
             <TextBlock Text="{x:Static prof:LocalModeCopy.EditingModeLabel}" Style="{StaticResource LocalSectionLabel}" />
-            <Border Background="{StaticResource SegmentTrackBrush}"
+            <Border Background="{DynamicResource SegmentTrackBrush}"
                     CornerRadius="{DynamicResource SmallCornerRadius}"
                     Padding="4"
-                    BorderBrush="{StaticResource SegmentBorderBrush}"
+                    BorderBrush="{DynamicResource SegmentBorderBrush}"
                     BorderThickness="1">
               <ItemsControl ItemsSource="{Binding LocalModeChoices}"
                             ItemTemplate="{StaticResource LocalEditingModeSegmentTemplate}">
@@ -319,10 +383,10 @@
                 Visibility="{Binding IsLocalSupervisionSection, Converter={StaticResource BoolToVisibility}}">
           <StackPanel>
             <TextBlock Text="{x:Static prof:LocalModeCopy.ActiveModeLabel}" Style="{StaticResource LocalSectionLabel}" />
-            <Border Background="{StaticResource SegmentTrackBrush}"
+            <Border Background="{DynamicResource SegmentTrackBrush}"
                     CornerRadius="{DynamicResource SmallCornerRadius}"
                     Padding="4"
-                    BorderBrush="{StaticResource SegmentBorderBrush}"
+                    BorderBrush="{DynamicResource SegmentBorderBrush}"
                     BorderThickness="1">
               <ItemsControl ItemsSource="{Binding LocalModeChoices}"
                             ItemTemplate="{StaticResource LocalActiveModeSegmentTemplate}">
@@ -334,7 +398,7 @@
               </ItemsControl>
             </Border>
             <TextBlock Text="{x:Static prof:LocalModeCopy.ActiveModeSaveHint}"
-                       Foreground="{StaticResource MutedBrush}"
+                       Foreground="{DynamicResource MutedBrush}"
                        FontSize="12"
                        TextWrapping="Wrap"
                        Margin="0,10,0,10" />
@@ -362,7 +426,7 @@
             <StackPanel>
               <TextBlock Text="WEEKLY SCREEN TIME OVERRIDES (MINUTES / DAY)" Style="{StaticResource LocalSectionLabel}" />
               <TextBlock Text="Optional. Toggle a day to override the daily limit."
-                         Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,6" />
+                         Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,6" />
               <ItemsControl ItemsSource="{Binding LocalScreenWeekly}"
                             ItemTemplate="{StaticResource LocalWeeklyDayTemplate}" />
               <Button Content="Save" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left"
@@ -434,21 +498,19 @@
             <StackPanel>
               <TextBlock Text="{x:Static prof:LocalModeCopy.KioskAppsTitle}" Style="{StaticResource LocalSectionLabel}" />
               <TextBlock Text="{x:Static prof:LocalModeCopy.KioskAppsHint}"
-                         Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12" />
+                         Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12" />
               <ItemsControl ItemsSource="{Binding LocalKioskApps}"
                             ItemTemplate="{StaticResource LocalKioskAppTemplate}"
                             Visibility="{Binding HasLocalKioskApps, Converter={StaticResource BoolToVisibility}}" />
               <TextBlock Text="{x:Static prof:LocalModeCopy.KioskAppsEmpty}"
-                         Foreground="{StaticResource MutedBrush}"
+                         Foreground="{DynamicResource MutedBrush}"
                          FontSize="12"
                          TextWrapping="Wrap"
                          Margin="0,0,0,12"
                          Visibility="{Binding HasLocalKioskApps, Converter={StaticResource BoolToVisibilityInverse}}" />
               <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                <Button Content="Save" Style="{StaticResource PrimaryButton}"
-                        Command="{Binding SaveLocalSectionCommand}" Padding="18,8" />
                 <Button Content="{x:Static prof:LocalModeCopy.KioskAppsRefreshButton}" Style="{StaticResource SubtleButton}"
-                        Command="{Binding RefreshLocalKioskAppsCommand}" Margin="12,0,0,0" Padding="18,8" />
+                        Command="{Binding RefreshLocalKioskAppsCommand}" Padding="18,8" />
               </StackPanel>
             </StackPanel>
           </Border>
@@ -456,7 +518,7 @@
             <StackPanel>
               <TextBlock Text="{x:Static prof:LocalModeCopy.KioskAppsAddTitle}" Style="{StaticResource LocalSectionLabel}" />
               <TextBlock Text="{x:Static prof:LocalModeCopy.KioskAppsAddHint}"
-                         Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12" />
+                         Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12" />
               <TextBlock Text="{x:Static prof:LocalModeCopy.KioskAppsNameLabel}" Style="{StaticResource LocalSectionLabel}" />
               <TextBox Text="{Binding LocalKioskManualName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
               <TextBlock Text="{x:Static prof:LocalModeCopy.KioskAppsPathLabel}" Style="{StaticResource LocalSectionLabel}" />
@@ -497,7 +559,7 @@
             <StackPanel>
               <TextBlock Text="{x:Static prof:LocalModeCopy.BedtimeWeeklyTitle}" Style="{StaticResource LocalSectionLabel}" />
               <TextBlock Text="{x:Static prof:LocalModeCopy.BedtimeWeeklyHint}"
-                         Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,6" />
+                         Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,6" />
               <ItemsControl ItemsSource="{Binding LocalBedtimeWeekly}"
                             ItemTemplate="{StaticResource LocalWeeklyBedtimeDayTemplate}" />
               <Button Content="Save" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left"
@@ -522,11 +584,52 @@
             <StackPanel>
               <TextBlock Text="WEEKLY PLAY OVERRIDES (MINUTES / DAY)" Style="{StaticResource LocalSectionLabel}" />
               <TextBlock Text="Optional. Toggle a day to override."
-                         Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,6" />
+                         Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,6" />
               <ItemsControl ItemsSource="{Binding LocalGamingWeekly}"
                             ItemTemplate="{StaticResource LocalWeeklyDayTemplate}" />
               <Button Content="Save" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left"
                       Command="{Binding SaveLocalSectionCommand}" Margin="0,12,0,0" Padding="18,8" />
+            </StackPanel>
+          </Border>
+          <Border Style="{StaticResource LocalSectionBox}">
+            <StackPanel>
+              <TextBlock Text="CUSTOM GAMES" Style="{StaticResource LocalSectionLabel}" />
+              <TextBlock Text="Add games not auto-detected by Guardi. Browse or type the .exe filename."
+                         Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,14" />
+
+              <!-- Executable row -->
+              <TextBlock Text="Executable (.exe)" Style="{StaticResource LocalSectionLabel}" Margin="0,0,0,4" />
+              <Grid Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="8" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox Grid.Column="0"
+                         Text="{Binding LocalNewGameExe, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="e.g. mygame.exe" />
+                <Button Grid.Column="2"
+                        Content="Browse…"
+                        Style="{StaticResource SubtleButton}"
+                        Command="{Binding BrowseLocalCustomGameCommand}"
+                        Padding="14,8" />
+              </Grid>
+
+              <!-- Display name row -->
+              <TextBlock Text="Display name" Style="{StaticResource LocalSectionLabel}" Margin="0,0,0,4" />
+              <TextBox Text="{Binding LocalNewGameName, UpdateSourceTrigger=PropertyChanged}"
+                       ToolTip="Name shown in stats (e.g. My Game)"
+                       Margin="0,0,0,14" />
+
+              <Button Content="Add game"
+                      Style="{StaticResource PrimaryButton}"
+                      Command="{Binding AddLocalCustomGameCommand}"
+                      HorizontalAlignment="Left"
+                      Padding="18,8"
+                      Margin="0,0,0,14" />
+
+              <ItemsControl ItemsSource="{Binding LocalCustomGames}"
+                            ItemTemplate="{StaticResource LocalCustomGameTemplate}" />
             </StackPanel>
           </Border>
           <Border Style="{StaticResource LocalSectionBox}">
@@ -535,7 +638,7 @@
               <StackPanel Margin="0,0,16,0">
                 <TextBlock Text="SHOW PLAY TIME OVERLAY" Style="{StaticResource LocalSectionLabel}" />
                 <TextBlock Text="The Sub sees how much play time is left while gaming."
-                           Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" />
+                           Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" />
               </StackPanel>
               <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding LocalGamingShowOverlay}" VerticalAlignment="Center" />
             </Grid>
@@ -553,14 +656,14 @@
                         Command="{Binding SaveLocalSectionCommand}" Padding="18,8" />
               </StackPanel>
               <TextBlock Text="Time counts when a YouTube tab is in the foreground."
-                         Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,10,0,0" TextWrapping="Wrap" />
+                         Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,10,0,0" TextWrapping="Wrap" />
             </StackPanel>
           </Border>
           <Border Style="{StaticResource LocalSectionBox}">
             <StackPanel>
               <TextBlock Text="WEEKLY YOUTUBE OVERRIDES (MINUTES / DAY)" Style="{StaticResource LocalSectionLabel}" />
               <TextBlock Text="Optional. Each day defaults to the daily limit. Toggle a day to override."
-                         Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,6" />
+                         Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,6" />
               <ItemsControl ItemsSource="{Binding LocalYoutubeWeekly}"
                             ItemTemplate="{StaticResource LocalWeeklyDayTemplate}" />
               <Button Content="Save" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left"
@@ -573,7 +676,7 @@
               <StackPanel Margin="0,0,16,0">
                 <TextBlock Text="SHOW YOUTUBE TIME OVERLAY" Style="{StaticResource LocalSectionLabel}" />
                 <TextBlock Text="The Sub sees how much YouTube time is left while watching."
-                           Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" />
+                           Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" />
               </StackPanel>
               <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding LocalYoutubeShowOverlay}" VerticalAlignment="Center" />
             </Grid>
@@ -584,7 +687,7 @@
               <StackPanel Margin="0,0,16,0">
                 <TextBlock Text="{x:Static prof:LocalModeCopy.YoutubeRestrictedModeEnabled}" Style="{StaticResource LocalSectionLabel}" />
                 <TextBlock Text="{x:Static prof:LocalModeCopy.YoutubeRestrictedModeHint}"
-                           Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" />
+                           Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" />
               </StackPanel>
               <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding LocalYoutubeRestrictedModeEnabled}" VerticalAlignment="Center" />
             </Grid>
@@ -597,7 +700,7 @@
             <StackPanel>
               <TextBlock Text="{x:Static prof:LocalModeCopy.AppLimitsExeLabel}" Style="{StaticResource LocalSectionLabel}" />
               <TextBlock Text="{x:Static prof:LocalModeCopy.AppLimitsExeHint}"
-                         Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
+                         Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
               <TextBox Text="{Binding LocalAppLimitExe, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12" />
               <TextBlock Text="{x:Static prof:LocalModeCopy.AppLimitsMinutesLabel}" Style="{StaticResource LocalSectionLabel}" />
               <TextBox Text="{Binding LocalAppLimitMinutes, UpdateSourceTrigger=PropertyChanged}" Width="200" HorizontalAlignment="Left" Margin="0,0,0,12" />
@@ -612,7 +715,7 @@
             <StackPanel>
               <TextBlock Text="{x:Static prof:LocalModeCopy.AppLimitsListTitle}" Style="{StaticResource LocalSectionLabel}" />
               <TextBlock Text="{x:Static prof:LocalModeCopy.AppLimitsListHint}"
-                         Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
+                         Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
               <ItemsControl ItemsSource="{Binding LocalAppTimeLimits}"
                             ItemTemplate="{StaticResource LocalAppTimeLimitTemplate}" />
               <Button Content="Save" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left"
@@ -636,7 +739,7 @@
               <TextBox Text="{Binding LocalStudyEnd, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12" />
               <TextBlock Text="{x:Static prof:LocalModeCopy.StudyDays}" Style="{StaticResource LocalSectionLabel}" />
               <TextBlock Text="Fallback days when a weekday has no override."
-                         Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,6" />
+                         Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,6" />
               <TextBox Text="{Binding LocalStudyDaysText, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,16" />
 
               <TextBlock Text="During study hours" Style="{StaticResource LocalSectionLabel}" />
@@ -668,7 +771,7 @@
             <StackPanel>
               <TextBlock Text="{x:Static prof:LocalModeCopy.StudyWeeklyTitle}" Style="{StaticResource LocalSectionLabel}" />
               <TextBlock Text="{x:Static prof:LocalModeCopy.StudyWeeklyHint}"
-                         Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,6" />
+                         Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,6" />
               <ItemsControl ItemsSource="{Binding LocalStudyWeekly}"
                             ItemTemplate="{StaticResource LocalWeeklyStudyDayTemplate}" />
               <Button Content="Save" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left"
@@ -689,7 +792,7 @@
 
             <TextBlock Text="{x:Static prof:LocalModeCopy.InfractionKindsTitle}" Style="{StaticResource LocalSectionLabel}" />
             <TextBlock Text="{x:Static prof:LocalModeCopy.InfractionKindsHint}"
-                       Foreground="{StaticResource MutedBrush}"
+                       Foreground="{DynamicResource MutedBrush}"
                        FontSize="12"
                        TextWrapping="Wrap"
                        Margin="0,0,0,10" />
@@ -698,7 +801,7 @@
               <StackPanel>
                 <TextBlock Text="{x:Static prof:UiCopy.InfractionLabelVpn}" FontWeight="SemiBold" />
                 <TextBlock Text="{x:Static prof:UiCopy.InfractionHintVpn}"
-                           Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" />
+                           Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" />
               </StackPanel>
               <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding LocalInfractionVpnEnabled}" VerticalAlignment="Center" />
             </Grid>
@@ -707,7 +810,7 @@
               <StackPanel>
                 <TextBlock Text="{x:Static prof:UiCopy.InfractionLabelBlockedApp}" FontWeight="SemiBold" />
                 <TextBlock Text="{x:Static prof:UiCopy.InfractionHintBlockedApp}"
-                           Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" />
+                           Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" />
               </StackPanel>
               <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding LocalInfractionBlockedAppEnabled}" VerticalAlignment="Center" />
             </Grid>
@@ -716,7 +819,7 @@
               <StackPanel>
                 <TextBlock Text="{x:Static prof:UiCopy.InfractionLabelBypass}" FontWeight="SemiBold" />
                 <TextBlock Text="{x:Static prof:UiCopy.InfractionHintBypass}"
-                           Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" />
+                           Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" />
               </StackPanel>
               <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding LocalInfractionBypassEnabled}" VerticalAlignment="Center" />
             </Grid>
@@ -725,7 +828,7 @@
               <StackPanel>
                 <TextBlock Text="{x:Static prof:UiCopy.InfractionLabelLimit}" FontWeight="SemiBold" />
                 <TextBlock Text="{x:Static prof:UiCopy.InfractionHintLimit}"
-                           Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" />
+                           Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" />
               </StackPanel>
               <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding LocalInfractionLimitEnabled}" VerticalAlignment="Center" />
             </Grid>
@@ -734,7 +837,7 @@
               <StackPanel>
                 <TextBlock Text="{x:Static prof:UiCopy.InfractionLabelStudy}" FontWeight="SemiBold" />
                 <TextBlock Text="{x:Static prof:UiCopy.InfractionHintStudy}"
-                           Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" />
+                           Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" />
               </StackPanel>
               <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding LocalInfractionStudyEnabled}" VerticalAlignment="Center" />
             </Grid>
@@ -743,37 +846,30 @@
               <StackPanel>
                 <TextBlock Text="{x:Static prof:UiCopy.InfractionLabelBlockedSearch}" FontWeight="SemiBold" />
                 <TextBlock Text="{x:Static prof:UiCopy.InfractionHintBlockedSearch}"
-                           Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" />
+                           Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" />
               </StackPanel>
               <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding LocalInfractionBlockedSearchEnabled}" VerticalAlignment="Center" />
             </Grid>
 
-            <TextBlock Text="Threshold Trusted Sub â†’ Sub" Style="{StaticResource LocalSectionLabel}" />
-            <TextBox Text="{Binding LocalPunishmentThresholdTrustedToSub, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12" />
-
-            <TextBlock Text="Threshold Sub â†’ Restricted Sub" Style="{StaticResource LocalSectionLabel}" />
-            <TextBox Text="{Binding LocalPunishmentThresholdSubToRestricted, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12" />
-
-            <TextBlock Text="Escalation duration (hours)" Style="{StaticResource LocalSectionLabel}" />
-            <TextBox Text="{Binding LocalPunishmentEscalationHours, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12" />
-
-            <TextBlock Text="Escalation duration (minutes)" Style="{StaticResource LocalSectionLabel}" />
-            <TextBox Text="{Binding LocalPunishmentEscalationMinutes, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,16" />
-
-            <TextBlock Text="Extra time per infraction (while punished, no escalation)"
+            <TextBlock Text="Trust meter" Style="{StaticResource LocalSectionLabel}" />
+            <TextBlock Text="{Binding DisciplineProgressText}"
                        FontWeight="SemiBold"
-                       Margin="0,0,0,8" />
-            <TextBlock Text="Default 30 min per kind. No extra time while floor is Trusted Sub."
-                       Foreground="{StaticResource MutedBrush}"
+                       TextWrapping="Wrap"
+                       Margin="0,0,0,6" />
+            <ProgressBar Value="{Binding TrustValue, Mode=OneWay}" Minimum="0" Maximum="100"
+                         Height="10" Margin="0,0,0,16" />
+
+            <TextBlock Text="Trust cost per slip" FontWeight="SemiBold" Margin="0,0,0,4" />
+            <TextBlock Text="How many trust points each kind of slip costs. Higher = more serious — it drains the meter faster and reaches stricter mode sooner."
+                       Foreground="{DynamicResource MutedBrush}"
                        FontSize="12"
                        TextWrapping="Wrap"
                        Margin="0,0,0,12" />
 
-            <Grid Margin="0,0,0,8">
+            <Grid Margin="0,0,0,16">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="56" />
-                <ColumnDefinition Width="56" />
+                <ColumnDefinition Width="Auto" />
               </Grid.ColumnDefinitions>
               <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -782,36 +878,34 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
               </Grid.RowDefinitions>
-              <TextBlock Grid.Row="0" Grid.Column="0" Text="Kind" FontWeight="SemiBold" Margin="0,0,0,8" />
-              <TextBlock Grid.Row="0" Grid.Column="1" Text="h" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,0,0,8" />
-              <TextBlock Grid.Row="0" Grid.Column="2" Text="min" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,0,0,8" />
 
-              <TextBlock Grid.Row="1" Grid.Column="0" Text="VPN attempt" VerticalAlignment="Center" />
-              <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding LocalVpnExtensionHours, UpdateSourceTrigger=PropertyChanged}" Margin="4,0,4,8" />
-              <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding LocalVpnExtensionMinutes, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
+              <TextBlock Grid.Row="0" Grid.Column="0" Text="{x:Static prof:UiCopy.InfractionLabelVpn}" VerticalAlignment="Center" />
+              <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding LocalTrustWeightVpn, UpdateSourceTrigger=PropertyChanged}" Width="90" Height="42" Padding="12,0" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Margin="0,0,0,8" />
 
-              <TextBlock Grid.Row="2" Grid.Column="0" Text="Blocked app (repeated)" VerticalAlignment="Center" />
-              <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding LocalBlockedAppExtensionHours, UpdateSourceTrigger=PropertyChanged}" Margin="4,0,4,8" />
-              <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding LocalBlockedAppExtensionMinutes, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
+              <TextBlock Grid.Row="1" Grid.Column="0" Text="{x:Static prof:UiCopy.InfractionLabelBypass}" VerticalAlignment="Center" />
+              <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding LocalTrustWeightBypass, UpdateSourceTrigger=PropertyChanged}" Width="90" Height="42" Padding="12,0" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Margin="0,0,0,8" />
 
-              <TextBlock Grid.Row="3" Grid.Column="0" Text="Bypass attempt" VerticalAlignment="Center" />
-              <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding LocalBypassExtensionHours, UpdateSourceTrigger=PropertyChanged}" Margin="4,0,4,8" />
-              <TextBox Grid.Row="3" Grid.Column="2" Text="{Binding LocalBypassExtensionMinutes, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
+              <TextBlock Grid.Row="2" Grid.Column="0" Text="{x:Static prof:UiCopy.InfractionLabelBlockedApp}" VerticalAlignment="Center" />
+              <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding LocalTrustWeightBlockedApp, UpdateSourceTrigger=PropertyChanged}" Width="90" Height="42" Padding="12,0" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Margin="0,0,0,8" />
 
-              <TextBlock Grid.Row="4" Grid.Column="0" Text="Limit ignored" VerticalAlignment="Center" />
-              <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding LocalLimitExtensionHours, UpdateSourceTrigger=PropertyChanged}" Margin="4,0,4,8" />
-              <TextBox Grid.Row="4" Grid.Column="2" Text="{Binding LocalLimitExtensionMinutes, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
+              <TextBlock Grid.Row="3" Grid.Column="0" Text="{x:Static prof:UiCopy.InfractionLabelBlockedSearch}" VerticalAlignment="Center" />
+              <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding LocalTrustWeightBlockedSearch, UpdateSourceTrigger=PropertyChanged}" Width="90" Height="42" Padding="12,0" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Margin="0,0,0,8" />
 
-              <TextBlock Grid.Row="5" Grid.Column="0" Text="Study time violation" VerticalAlignment="Center" />
-              <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding LocalStudyExtensionHours, UpdateSourceTrigger=PropertyChanged}" Margin="4,0,4,8" />
-              <TextBox Grid.Row="5" Grid.Column="2" Text="{Binding LocalStudyExtensionMinutes, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
+              <TextBlock Grid.Row="4" Grid.Column="0" Text="{x:Static prof:UiCopy.InfractionLabelStudy}" VerticalAlignment="Center" />
+              <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding LocalTrustWeightStudy, UpdateSourceTrigger=PropertyChanged}" Width="90" Height="42" Padding="12,0" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Margin="0,0,0,8" />
 
-              <TextBlock Grid.Row="6" Grid.Column="0" Text="Blocked search" VerticalAlignment="Center" />
-              <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding LocalBlockedSearchExtensionHours, UpdateSourceTrigger=PropertyChanged}" Margin="4,0,4,8" />
-              <TextBox Grid.Row="6" Grid.Column="2" Text="{Binding LocalBlockedSearchExtensionMinutes, UpdateSourceTrigger=PropertyChanged}" />
+              <TextBlock Grid.Row="5" Grid.Column="0" Text="{x:Static prof:UiCopy.InfractionLabelLimit}" VerticalAlignment="Center" />
+              <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding LocalTrustWeightLimit, UpdateSourceTrigger=PropertyChanged}" Width="90" Height="42" Padding="12,0" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" />
             </Grid>
+
+            <TextBlock Text="Trust regained per clean hour" Style="{StaticResource LocalSectionLabel}" />
+            <TextBlock Text="How fast trust climbs back during good, supervised behaviour. Reaching full trust steps a punished mode back down."
+                       Foreground="{DynamicResource MutedBrush}"
+                       FontSize="12"
+                       TextWrapping="Wrap"
+                       Margin="0,0,0,8" />
+            <TextBox Text="{Binding LocalTrustRegenPerHour, UpdateSourceTrigger=PropertyChanged}" Width="200" HorizontalAlignment="Left" Margin="0,0,0,16" />
 
             <StackPanel Orientation="Horizontal" Margin="0,12,0,4">
               <Button Content="Save" Style="{StaticResource PrimaryButton}"
@@ -820,7 +914,7 @@
                       Command="{Binding ClearLocalPunishmentCommand}" Padding="18,8" />
             </StackPanel>
             <TextBlock Text="Clears the active punishment level, infraction count, and de-escalation timer."
-                       Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" />
+                       Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" />
           </StackPanel>
         </Border>
 
@@ -833,12 +927,12 @@
                 <StackPanel Margin="0,0,16,0">
                   <TextBlock Text="{x:Static prof:LocalModeCopy.ImageShieldEnabled}" FontWeight="SemiBold" />
                   <TextBlock Text="{x:Static prof:LocalModeCopy.ImageShieldHint}"
-                             Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0" />
+                             Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0" />
                 </StackPanel>
                 <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding LocalImageShieldEnabled}" VerticalAlignment="Center" />
               </Grid>
               <TextBlock Text="{Binding ImageShieldStatus, Mode=OneWay}"
-                         Foreground="{StaticResource PrimaryDarkBrush}" FontSize="12" TextWrapping="Wrap" />
+                         Foreground="{DynamicResource PrimaryDarkBrush}" FontSize="12" TextWrapping="Wrap" />
             </StackPanel>
           </Border>
 
@@ -847,7 +941,7 @@
             <StackPanel>
               <TextBlock Text="{x:Static prof:LocalModeCopy.ImageShieldPerModeTitle}" Style="{StaticResource LocalSectionLabel}" />
               <TextBlock Text="{x:Static prof:LocalModeCopy.ImageShieldPerModeHint}"
-                         Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,10" />
+                         Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,10" />
               <Grid Margin="0,4">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                 <TextBlock Text="Trusted Sub" VerticalAlignment="Center" />
@@ -871,7 +965,7 @@
             <StackPanel>
               <TextBlock Text="{x:Static prof:LocalModeCopy.ImageShieldPerBrowserTitle}" Style="{StaticResource LocalSectionLabel}" />
               <TextBlock Text="{x:Static prof:LocalModeCopy.ImageShieldPerBrowserHint}"
-                         Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,10" />
+                         Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,10" />
               <Grid Margin="0,6">
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="*" />
@@ -880,7 +974,7 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="Firefox" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="1" Text="{Binding LocalImageShieldFirefoxStatus}"
-                           Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,12,0" VerticalAlignment="Center" />
+                           Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,12,0" VerticalAlignment="Center" />
                 <CheckBox Grid.Column="2" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding LocalImageShieldFirefox}" />
               </Grid>
               <Grid Margin="0,6" IsEnabled="{Binding LocalImageShieldChromiumAvailable}">
@@ -891,7 +985,7 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="Chrome" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="1" Text="{Binding LocalImageShieldChromeStatus}"
-                           Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,12,0" VerticalAlignment="Center" />
+                           Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,12,0" VerticalAlignment="Center" />
                 <CheckBox Grid.Column="2" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding LocalImageShieldChrome}" />
               </Grid>
               <Grid Margin="0,6" IsEnabled="{Binding LocalImageShieldChromiumAvailable}">
@@ -902,7 +996,7 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="Microsoft Edge" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="1" Text="{Binding LocalImageShieldEdgeStatus}"
-                           Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,12,0" VerticalAlignment="Center" />
+                           Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,12,0" VerticalAlignment="Center" />
                 <CheckBox Grid.Column="2" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding LocalImageShieldEdge}" />
               </Grid>
               <Grid Margin="0,6" IsEnabled="{Binding LocalImageShieldChromiumAvailable}">
@@ -913,11 +1007,11 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="Brave" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="1" Text="{Binding LocalImageShieldBraveStatus}"
-                           Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,12,0" VerticalAlignment="Center" />
+                           Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,12,0" VerticalAlignment="Center" />
                 <CheckBox Grid.Column="2" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding LocalImageShieldBrave}" />
               </Grid>
               <TextBlock Text="{x:Static prof:LocalModeCopy.ImageShieldFirefoxDevHint}"
-                         Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,10,0,0" />
+                         Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,10,0,0" />
             </StackPanel>
           </Border>
 
@@ -926,7 +1020,7 @@
             <StackPanel>
               <TextBlock Text="{x:Static prof:LocalModeCopy.ImageShieldRuntimeStatusTitle}" Style="{StaticResource LocalSectionLabel}" />
               <TextBlock Text="{x:Static prof:LocalModeCopy.ImageShieldCopyReportHint}"
-                         Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,10" />
+                         Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,10" />
               <Button Content="{x:Static prof:LocalModeCopy.ImageShieldCopyReportButton}"
                       Command="{Binding CopyImageShieldDiagnosticCommand}"
                       Style="{StaticResource PrimaryButton}"
@@ -941,7 +1035,7 @@
               <TextBlock Text="{x:Static prof:LocalModeCopy.ImageShieldMinSizeLabel}" Style="{StaticResource LocalSectionLabel}" Margin="0,8,0,0" />
               <TextBox Text="{Binding LocalImageShieldMinSize, UpdateSourceTrigger=PropertyChanged}" Width="120" HorizontalAlignment="Left" />
               <TextBlock Text="{x:Static prof:LocalModeCopy.ImageShieldThresholdLabel}" Style="{StaticResource LocalSectionLabel}" Margin="0,12,0,0" />
-              <TextBox Text="{Binding LocalImageShieldNsfwThreshold, UpdateSourceTrigger=PropertyChanged}" Width="120" HorizontalAlignment="Left" />
+              <TextBox Text="{Binding LocalImageShieldNsfwThreshold, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource LocaleFlexibleDoubleConverter}}" Width="120" HorizontalAlignment="Left" />
               <TextBlock Text="{x:Static prof:LocalModeCopy.ImageShieldMaxPerSecondLabel}" Style="{StaticResource LocalSectionLabel}" Margin="0,12,0,0" />
               <TextBox Text="{Binding LocalImageShieldMaxPerSecond, UpdateSourceTrigger=PropertyChanged}" Width="120" HorizontalAlignment="Left" />
             </StackPanel>
@@ -964,7 +1058,7 @@
                 <TextBlock Text="{x:Static prof:LocalModeCopy.AutoStartLabel}" Style="{StaticResource LocalSectionLabel}" />
                 <TextBlock Text="{x:Static prof:LocalModeCopy.AutoStartDescription}"
                            TextWrapping="Wrap"
-                           Foreground="{StaticResource MutedBrush}" />
+                           Foreground="{DynamicResource MutedBrush}" />
               </StackPanel>
               <CheckBox Grid.Column="1"
                         Style="{StaticResource ToggleSwitch}"
@@ -982,7 +1076,7 @@
                 <TextBlock Text="{x:Static prof:LocalModeCopy.WidgetRemindersTitle}" Style="{StaticResource LocalSectionLabel}" />
                 <TextBlock Text="{x:Static prof:LocalModeCopy.WidgetRemindersHint}"
                            TextWrapping="Wrap"
-                           Foreground="{StaticResource MutedBrush}" />
+                           Foreground="{DynamicResource MutedBrush}" />
               </StackPanel>
               <CheckBox Grid.Column="1"
                         Style="{StaticResource ToggleSwitch}"
@@ -997,14 +1091,41 @@
                        HorizontalAlignment="Left"
                        IsEnabled="{Binding LocalWidgetRemindersEnabled}" />
             </StackPanel>
-            <TextBlock Text="EXIT PIN (4Ã¢â‚¬â€œ8 digits, empty = none)" Style="{StaticResource LocalSectionLabel}" />
+            <TextBlock Text="Sub nickname" Style="{StaticResource LocalSectionLabel}" />
+            <TextBlock Text="Used in greetings, like &quot;Hi, {name}!&quot;. Leave blank to keep the current one."
+                       Foreground="{DynamicResource MutedBrush}"
+                       FontSize="12"
+                       TextWrapping="Wrap"
+                       Margin="0,0,0,6" />
+            <TextBox Text="{Binding LocalSubDisplayName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,16" />
+
+            <TextBlock Text="EXIT PIN (6&#x2013;8 digits)" Style="{StaticResource LocalSectionLabel}" />
+            <TextBlock Margin="0,0,0,6" FontSize="12" Foreground="#6B7280">
+              <Run Text="Status:" />
+              <Run Text="{Binding LocalExitPinStatusText, Mode=OneWay}" FontWeight="SemiBold" />
+              <LineBreak />
+              <Run Text="Leave blank to keep the current PIN. The PIN is stored hashed and is never shown back." />
+            </TextBlock>
             <TextBox Text="{Binding LocalExitPin, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12" />
-            <Button Content="Save" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left"
-                    Command="{Binding SaveLocalSectionCommand}" Padding="18,8" />
+            <StackPanel Orientation="Horizontal">
+              <Button Content="Save" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left"
+                      Command="{Binding SaveLocalSectionCommand}" Padding="18,8" />
+              <Button Content="Remove PIN" Margin="10,0,0,0" HorizontalAlignment="Left"
+                      Command="{Binding RemoveLocalExitPinCommand}" Padding="18,8" />
+            </StackPanel>
           </StackPanel>
         </Border>
         <!-- Blocklist -->
         <StackPanel Visibility="{Binding IsLocalBlocklistSection, Converter={StaticResource BoolToVisibility}}">
+          <Border Style="{StaticResource LocalSectionBox}">
+            <StackPanel>
+              <TextBlock Text="CONTENT CATEGORIES" Style="{StaticResource LocalSectionLabel}" />
+              <TextBlock Text="Block whole categories of sites at once. Known sites are blocked in every browser, unknown ones are caught automatically by name and page content. Adult also routes DNS through a family filter (millions of sites, updated continuously). Always enforced, in every mode."
+                         Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,10" />
+              <ItemsControl ItemsSource="{Binding LocalWebCategories}"
+                            ItemTemplate="{StaticResource LocalWebCategoryTemplate}" />
+            </StackPanel>
+          </Border>
           <Border Style="{StaticResource LocalSectionBox}">
             <StackPanel>
               <TextBlock Text="BLOCK A WEBSITE" Style="{StaticResource LocalSectionLabel}" />
@@ -1028,7 +1149,7 @@
                 Visibility="{Binding IsLocalControlSection, Converter={StaticResource BoolToVisibility}}">
           <StackPanel>
             <TextBlock Text="Remote Dom commands (lock, message, kill) are ignored in local mode."
-                       TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,12" />
+                       TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,12" />
             <Button Content="Lock screen now" Style="{StaticResource PrimaryButton}"
                     Command="{Binding LocalLockScreenCommand}" HorizontalAlignment="Left" Padding="18,8" />
           </StackPanel>
@@ -1040,7 +1161,7 @@
           <StackPanel>
             <TextBlock Text="SCREENSHOT INTERVAL (MINUTES)" Style="{StaticResource LocalSectionLabel}" />
             <TextBlock Text="Uploads still run when enrolled; interval applies after agent restart."
-                       Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,10" />
+                       Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,10" />
             <StackPanel Orientation="Horizontal">
               <TextBox Text="{Binding LocalScreenshotInterval, UpdateSourceTrigger=PropertyChanged}" Width="200" />
               <Button Content="Save" Style="{StaticResource PrimaryButton}" Margin="12,0,0,0"
@@ -1051,7 +1172,7 @@
       </StackPanel>
 
       <TextBlock Text="{Binding LocalSyncWarning}"
-                 Foreground="{StaticResource WarningBrush}"
+                 Foreground="{DynamicResource WarningBrush}"
                  FontWeight="SemiBold" TextWrapping="Wrap"
                  Margin="0,20,0,0"
                  Visibility="{Binding HasLocalSyncWarning, Converter={StaticResource BoolToVisibility}}" />

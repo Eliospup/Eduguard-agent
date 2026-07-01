@@ -95,23 +95,23 @@ export function applyManagedTuning(managed, defaults, target) {
   return out;
 }
 
-export async function publishShieldState(api, active, managed) {
+export async function publishShieldState(api, active, managed, ts = Date.now()) {
   const normalizedManaged = normalizeManagedForRuntime(managed, active);
   const normalizedActive = !!active && normalizedManaged.shieldActive === true;
   await api.storage.local.set({
     [STATE_LOCAL_KEY]: {
       active: normalizedActive,
       managed: normalizedManaged,
-      ts: Date.now(),
+      ts,
     },
   });
 }
 
-function broadcastShieldState(api, active, managed) {
+function broadcastShieldState(api, active, managed, ts = Date.now()) {
   if (!api.tabs?.query) return;
   const normalizedManaged = normalizeManagedForRuntime(managed, active);
   const normalizedActive = !!active && normalizedManaged.shieldActive === true;
-  const payload = { type: MSG_SHIELD_STATE, active: normalizedActive, managed: normalizedManaged };
+  const payload = { type: MSG_SHIELD_STATE, active: normalizedActive, managed: normalizedManaged, ts };
   api.tabs
     .query({})
     .then((tabs) => {
@@ -132,8 +132,39 @@ export function createBackgroundStateWatcher(api, { onChange, pollMs = 2500, get
   let active = false;
   let pollTimer = 0;
   let bootstrapped = false;
+  // Last published snapshot, served to MSG_GET_STATE callers without hitting the agent
+  // again. Re-fetching + republishing + rebroadcasting on every page's state request
+  // caused a cascade: each open tab's storage.onChanged handler asked background to
+  // refresh, which re-published to storage.local and re-broadcast to every tab, which
+  // re-triggered storage.onChanged on every tab again — and since each refresh re-fetches
+  // the agent independently, two near-simultaneous refreshes could observe a slightly
+  // different snapshot, producing a visible flash between them. A cached snapshot makes
+  // "what's the state" cheap and idempotent; only the poll timer / a real managed-storage
+  // change should trigger a fresh fetch.
+  let lastSnapshot = { active: false, managed: { shieldActive: false }, ts: 0 };
+  let lastManagedKey = "";
+
+  // Publishing/broadcasting unconditionally on every poll tick (every 1.2-2.5s) meant
+  // every open Guardi page re-applied its mode on a timer even when nothing changed —
+  // the flash on mode change was two of these near-simultaneous re-applies landing a
+  // few hundred ms apart with a slightly different agent snapshot. Only push an update
+  // when something actually changed (or this is the first tick).
+  function publishIfChanged(active, managed, ts) {
+    const managedKey = JSON.stringify(managed);
+    const changed = !bootstrapped || active !== lastSnapshot.active || managedKey !== lastManagedKey;
+    lastSnapshot = { active, managed, ts };
+    lastManagedKey = managedKey;
+
+    if (changed) {
+      publishShieldState(api, active, managed, ts);
+      broadcastShieldState(api, active, managed, ts);
+    }
+
+    return changed;
+  }
 
   async function refresh() {
+    const ts = Date.now();
     const agent = await fetchAgentShieldState();
     const agentActive = agent.agentRunning === true && agent.active === true;
 
@@ -141,28 +172,25 @@ export function createBackgroundStateWatcher(api, { onChange, pollMs = 2500, get
       const managed = normalizeManagedForRuntime({ shieldActive: false }, false);
       const wasActive = active;
       active = false;
-      await publishShieldState(api, false, managed);
-      broadcastShieldState(api, false, managed);
+      publishIfChanged(false, managed, ts);
       if (!bootstrapped || wasActive) onChange?.(false, managed);
       bootstrapped = true;
-      return { active: false, managed };
+      return lastSnapshot;
     }
 
     const managed = normalizeManagedForRuntime(agent.managed || { shieldActive: true }, true);
     const next = managed.shieldActive === true;
-    const changed = next !== active;
+    const wasFirstRun = !bootstrapped;
     active = next;
-
-    await publishShieldState(api, active, managed);
-    broadcastShieldState(api, active, managed);
+    const changed = publishIfChanged(active, managed, ts);
 
     if (active) {
       sendExtensionHeartbeat(api, getHeartbeatStatus?.() ?? { shieldActive: active });
     }
 
-    if (!bootstrapped || changed) onChange?.(active, managed);
+    if (wasFirstRun || changed) onChange?.(active, managed);
     bootstrapped = true;
-    return { active, managed };
+    return lastSnapshot;
   }
 
   function start() {
@@ -176,7 +204,7 @@ export function createBackgroundStateWatcher(api, { onChange, pollMs = 2500, get
     pollTimer = setInterval(refresh, pollMs);
   }
 
-  return { start, refresh, isActive: () => active };
+  return { start, refresh, isActive: () => active, getSnapshot: () => lastSnapshot };
 }
 
 /** Content / extension pages: read the mirrored state, but never trust stale active snapshots. */

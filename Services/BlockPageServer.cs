@@ -13,10 +13,19 @@ internal sealed class BlockPageServer : IDisposable
 {
     private readonly LocalCertificateAuthority _ca = new();
     private IHost? _host;
+    private string? _modeDisplayName;
+    private Profiles.ModeTheme? _modeTheme;
 
     public bool IsRunning { get; private set; }
     public string? LastError { get; private set; }
     public string? CertificateError => _ca.LastError;
+
+    /// <summary>Sets the mode whose theme/copy the block page should mirror. Read live per-request, so this can change without restarting Kestrel.</summary>
+    public void SetMode(string displayName, Profiles.ModeTheme theme)
+    {
+        _modeDisplayName = displayName;
+        _modeTheme = theme;
+    }
 
     public void Start(IReadOnlyCollection<string> blockedHosts)
     {
@@ -41,7 +50,7 @@ internal sealed class BlockPageServer : IDisposable
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
                     webBuilder.ConfigureKestrel(ConfigureKestrel);
-                    webBuilder.Configure(app => app.Run(HandleRequestAsync));
+                    webBuilder.Configure(app => app.Run(context => HandleRequestAsync(context)));
                 })
                 .Build();
 
@@ -75,7 +84,7 @@ internal sealed class BlockPageServer : IDisposable
         options.Listen(IPAddress.IPv6Loopback, 443, ConfigureHttps);
     }
 
-    private static async Task HandleRequestAsync(HttpContext context)
+    private async Task HandleRequestAsync(HttpContext context)
     {
         var host = context.Request.Host.Host;
         if (string.IsNullOrWhiteSpace(host)
@@ -86,7 +95,7 @@ internal sealed class BlockPageServer : IDisposable
             host = "blocked site";
         }
 
-        var html = BlockPageHtml.Build(host);
+        var html = BlockPageHtml.Build(host, _modeDisplayName, _modeTheme);
         var bytes = Encoding.UTF8.GetBytes(html);
 
         context.Response.StatusCode = StatusCodes.Status403Forbidden;

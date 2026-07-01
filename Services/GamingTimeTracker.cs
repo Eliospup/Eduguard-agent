@@ -46,8 +46,11 @@ internal sealed class GamingTimeTracker : IDisposable
     private IReadOnlyList<DetectedGame> _cachedRunningGames = [];
     private volatile bool _runningScanInFlight;
 
-    public GamingTimeTracker(Dispatcher dispatcher, StudyTimeService studyTime)
+    private readonly Func<bool> _isHardEnforcement;
+
+    public GamingTimeTracker(Dispatcher dispatcher, StudyTimeService studyTime, Func<bool>? isHardEnforcement = null)
     {
+        _isHardEnforcement = isHardEnforcement ?? (() => true);
         _studyTime = studyTime;
         _timer = new DispatcherTimer(SampleInterval, DispatcherPriority.Normal, OnTick, dispatcher);
         _games.LoadFromStorage();
@@ -63,6 +66,10 @@ internal sealed class GamingTimeTracker : IDisposable
     public event Action<string>? StudyModeBlocked;
     public event Action<GamingHudState?>? HudStateChanged;
     public event Action<DetectedGame>? GameSessionStarted;
+
+    public bool AddExtraGame(string exe, string name) => _games.AddExtraGame(exe, name);
+    public bool RemoveExtraGame(string exe) => _games.RemoveExtraGame(exe);
+    public IReadOnlyList<(string Exe, string Name)> GetExtraGames() => _games.GetExtraGames();
 
     public int LimitMinutes => _limitMinutes;
 
@@ -421,8 +428,15 @@ internal sealed class GamingTimeTracker : IDisposable
 
     private void EnforceLimit(IReadOnlyList<DetectedGame> running)
     {
-        if (!TryKillGames(running, out _))
-            return;
+        if (_isHardEnforcement())
+        {
+            if (!TryKillGames(running, out _))
+                return;
+        }
+        else if (running.Count == 0)
+        {
+            return; // Soft mode: nothing running to remind about.
+        }
 
         var now = DateTimeOffset.UtcNow;
         if (now - _lastLimitNotice < NoticeCooldown)
@@ -434,16 +448,36 @@ internal sealed class GamingTimeTracker : IDisposable
 
     private void EnforceStudyMode(IReadOnlyList<DetectedGame> running)
     {
-        if (!TryKillGames(running, out var closedName))
-            return;
+        string key;
+        if (_isHardEnforcement())
+        {
+            if (!TryKillGames(running, out var closedName))
+                return;
+            key = closedName!;
+        }
+        else
+        {
+            if (running.Count == 0)
+                return; // Soft mode: remind without closing.
+            key = running[0].DisplayName;
+        }
 
-        var key = closedName!;
         var now = DateTimeOffset.UtcNow;
         if (_lastStudyNoticeByTarget.TryGetValue(key, out var last) && now - last < StudyNoticeCooldown)
             return;
 
         _lastStudyNoticeByTarget[key] = now;
         StudyModeBlocked?.Invoke(key);
+    }
+
+    public void KillRunningGames()
+    {
+        IReadOnlyList<DetectedGame> snapshot;
+        lock (_stateLock)
+            snapshot = _cachedRunningGames;
+        TryKillGames(snapshot, out _);
+        // Reset cooldown so overlay fires immediately if the game is relaunched.
+        _lastLimitNotice = DateTimeOffset.MinValue;
     }
 
     private static bool TryKillGames(IReadOnlyList<DetectedGame> running, out string? closedDisplayName)

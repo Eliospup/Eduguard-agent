@@ -96,6 +96,34 @@ internal sealed class GamingGameRegistry
             Persist();
     }
 
+    public bool AddExtraGame(string exe, string name)
+    {
+        if (!TryNormalizeExe(exe, out var normalized) || string.IsNullOrWhiteSpace(name))
+            return false;
+
+        _extraGames[normalized] = name.Trim();
+        Persist();
+        return true;
+    }
+
+    public bool RemoveExtraGame(string exe)
+    {
+        if (!TryNormalizeExe(exe, out var normalized))
+            return false;
+
+        if (!_extraGames.Remove(normalized))
+            return false;
+
+        Persist();
+        return true;
+    }
+
+    public IReadOnlyList<(string Exe, string Name)> GetExtraGames() =>
+        _extraGames
+            .Select(p => (p.Key, p.Value))
+            .OrderBy(p => p.Value, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
     public IReadOnlyDictionary<string, int> GameLimits => _gameLimits;
 
     public int? GetLimitMinutes(string exe)

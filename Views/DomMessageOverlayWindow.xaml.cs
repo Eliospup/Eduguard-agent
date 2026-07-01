@@ -11,9 +11,7 @@ public partial class DomMessageOverlayWindow : Window
         TitleText.Text = title ?? UiCopy.DomMessageTitle;
         MessageText.Text = message;
         DismissButton.Content = UiCopy.DomMessageDismissButton;
-        Mascot.Visibility = UiPresentationState.Current.ShowMascot
-            ? Visibility.Visible
-            : Visibility.Collapsed;
+        UiPresentationState.ApplyMascotVisibility(Mascot, TrustedSubMascotIcon, RestrictedSubMascotIcon);
     }
     private void OnDismissClick(object sender, RoutedEventArgs e) => Close();
 }

@@ -6,6 +6,14 @@ export const MODE_SLUGS = {
   RESTRICTED: "restricted_sub",
 };
 
+/** Per-mode greeter mascot asset (in assets/) used by the static HTML pages.
+   PNG illustrations; the matching *.svg files remain as a vector fallback. */
+const MASCOT_ASSET_BY_SLUG = {
+  trusted_sub: "trusted-sub-mascot.png",
+  sub: "guardi-mascot.png",
+  restricted_sub: "restricted-sub-mascot.png",
+};
+
 const MODE_CLASS_PREFIX = "guardi-mode-";
 
 function hexToRgb(hex) {
@@ -23,47 +31,51 @@ const MODES = {
   trusted_sub: {
     slug: MODE_SLUGS.TRUSTED,
     cssVars: {
-      "--guardi-sky": "#ecfdf5",
-      "--guardi-sky-deep": "#a7f3d0",
-      "--guardi-pink": "#fef3c7",
-      "--guardi-pink-hot": "#fcd34d",
-      "--guardi-blue": "#34d399",
-      "--guardi-blue-deep": "#047857",
-      "--guardi-lilac": "#d1fae5",
-      "--guardi-text": "#14532d",
-      "--guardi-text-soft": "#059669",
-      "--guardi-shadow": "rgba(5, 150, 105, 0.28)",
-      "--guardi-shield-primary": "#059669",
-      "--guardi-shield-accent": "#6ee7b7",
-      "--guardi-banner-bg": "linear-gradient(135deg, #ecfdf5 0%, #fef3c7 55%, #d1fae5 100%)",
-      "--guardi-banner-border": "#a7f3d0",
-      "--guardi-banner-text": "#047857",
+      "--guardi-sky": "#0F1822",
+      "--guardi-sky-deep": "#070A0D",
+      "--guardi-pink": "#11202A",
+      "--guardi-pink-hot": "#33E6CD",
+      "--guardi-blue": "#33E6CD",
+      "--guardi-blue-deep": "#1FA897",
+      "--guardi-lilac": "#1C3640",
+      "--guardi-text": "#E7F1F2",
+      "--guardi-text-soft": "#BFE3DD",
+      "--guardi-shadow": "rgba(51, 230, 205, 0.28)",
+      "--guardi-shield-primary": "#33E6CD",
+      "--guardi-shield-accent": "#1FA897",
+      "--guardi-banner-bg": "linear-gradient(135deg, #0F1822 0%, #11202A 100%)",
+      "--guardi-banner-border": "#33E6CD",
+      "--guardi-banner-text": "#E7F1F2",
+      "--guardi-page-bg": "linear-gradient(165deg, #0B1014 0%, #0F1822 55%, #070A0D 100%)",
+      "--guardi-card-bg": "rgba(15, 24, 34, 0.92)",
+      "--guardi-font-display": '"Chakra Petch", "Segoe UI", system-ui, sans-serif',
+      "--guardi-font-body": '"Chakra Petch", "Segoe UI", system-ui, sans-serif',
     },
     browserTheme: {
       colors: {
-        frame: hexToRgb("#f0fdf4"),
-        frame_inactive: hexToRgb("#ecfdf5"),
-        toolbar: hexToRgb("#a7f3d0"),
-        toolbar_field: hexToRgb("#ffffff"),
-        toolbar_field_text: hexToRgb("#14532d"),
-        toolbar_field_border: hexToRgb("#fcd34d"),
-        toolbar_text: hexToRgb("#047857"),
-        tab_text: hexToRgb("#059669"),
-        tab_background_text: hexToRgb("#34d399"),
-        bookmark_text: hexToRgb("#047857"),
-        button_background_hover: hexToRgb("#fef3c7"),
-        ntp_background: hexToRgb("#ecfdf5"),
-        ntp_text: hexToRgb("#14532d"),
-        popup: hexToRgb("#f0fdf4"),
-        popup_text: hexToRgb("#14532d"),
-        popup_border: hexToRgb("#a7f3d0"),
+        frame: hexToRgb("#0B1014"),
+        frame_inactive: hexToRgb("#070A0D"),
+        toolbar: hexToRgb("#0F1822"),
+        toolbar_field: hexToRgb("#11202A"),
+        toolbar_field_text: hexToRgb("#E7F1F2"),
+        toolbar_field_border: hexToRgb("#1C3640"),
+        toolbar_text: hexToRgb("#BFE3DD"),
+        tab_text: hexToRgb("#E7F1F2"),
+        tab_background_text: hexToRgb("#33E6CD"),
+        bookmark_text: hexToRgb("#33E6CD"),
+        button_background_hover: hexToRgb("#1C3640"),
+        ntp_background: hexToRgb("#0B1014"),
+        ntp_text: hexToRgb("#E7F1F2"),
+        popup: hexToRgb("#0B1014"),
+        popup_text: hexToRgb("#E7F1F2"),
+        popup_border: hexToRgb("#1C3640"),
         icons: {
-          toolbar: hexToRgb("#059669"),
-          tab: hexToRgb("#34d399"),
-          bookmark: hexToRgb("#d97706"),
+          toolbar: hexToRgb("#33E6CD"),
+          tab: hexToRgb("#33E6CD"),
+          bookmark: hexToRgb("#1FA897"),
         },
       },
-      properties: { color_scheme: "light", ntp_alignment: "bottom" },
+      properties: { color_scheme: "dark", ntp_alignment: "bottom" },
     },
     copy: {
       actionTitle: "Guardi — your study browser is protected",
@@ -135,6 +147,11 @@ const MODES = {
       "--guardi-banner-bg": "linear-gradient(135deg, #e0f2fe 0%, #bae6fd 55%, #f0f9ff 100%)",
       "--guardi-banner-border": "#7dd3fc",
       "--guardi-banner-text": "#0369a1",
+      "--guardi-page-bg":
+        "radial-gradient(circle at 20% 15%, #fff 0%, transparent 42%), radial-gradient(circle at 82% 22%, #e0f2fe 0%, transparent 36%), linear-gradient(165deg, #f0f9ff 0%, #e0f2fe 38%, #bae6fd 100%)",
+      "--guardi-card-bg": "rgba(255, 255, 255, 0.92)",
+      "--guardi-font-display": '"Fredoka", "Nunito", "Segoe UI", system-ui, sans-serif',
+      "--guardi-font-body": '"Nunito", "Segoe UI", system-ui, sans-serif',
     },
     browserTheme: {
       colors: {
@@ -217,47 +234,51 @@ const MODES = {
   restricted_sub: {
     slug: MODE_SLUGS.RESTRICTED,
     cssVars: {
-      "--guardi-sky": "#eff6ff",
-      "--guardi-sky-deep": "#bfdbfe",
-      "--guardi-pink": "#fef3c7",
-      "--guardi-pink-hot": "#f59e0b",
-      "--guardi-blue": "#3b82f6",
-      "--guardi-blue-deep": "#1e3a8a",
-      "--guardi-lilac": "#dbeafe",
-      "--guardi-text": "#1e3a8a",
-      "--guardi-text-soft": "#1d4ed8",
-      "--guardi-shadow": "rgba(29, 78, 216, 0.32)",
-      "--guardi-shield-primary": "#1d4ed8",
-      "--guardi-shield-accent": "#f59e0b",
-      "--guardi-banner-bg": "linear-gradient(135deg, #eff6ff 0%, #fef3c7 45%, #dbeafe 100%)",
-      "--guardi-banner-border": "#f59e0b",
-      "--guardi-banner-text": "#1e3a8a",
+      "--guardi-sky": "#221C15",
+      "--guardi-sky-deep": "#100C08",
+      "--guardi-pink": "#2B2114",
+      "--guardi-pink-hot": "#F5A623",
+      "--guardi-blue": "#F5A623",
+      "--guardi-blue-deep": "#C77F12",
+      "--guardi-lilac": "#3A2E1F",
+      "--guardi-text": "#F3E9DC",
+      "--guardi-text-soft": "#D9C7A8",
+      "--guardi-shadow": "rgba(245, 166, 35, 0.28)",
+      "--guardi-shield-primary": "#F5A623",
+      "--guardi-shield-accent": "#C77F12",
+      "--guardi-banner-bg": "linear-gradient(135deg, #221C15 0%, #2B2114 100%)",
+      "--guardi-banner-border": "#F5A623",
+      "--guardi-banner-text": "#F3E9DC",
+      "--guardi-page-bg": "linear-gradient(165deg, #1B1510 0%, #221C15 55%, #100C08 100%)",
+      "--guardi-card-bg": "rgba(34, 28, 21, 0.92)",
+      "--guardi-font-display": '"Fredoka", "Nunito", "Segoe UI", system-ui, sans-serif',
+      "--guardi-font-body": '"Nunito", "Segoe UI", system-ui, sans-serif',
     },
     browserTheme: {
       colors: {
-        frame: hexToRgb("#eff6ff"),
-        frame_inactive: hexToRgb("#dbeafe"),
-        toolbar: hexToRgb("#bfdbfe"),
-        toolbar_field: hexToRgb("#ffffff"),
-        toolbar_field_text: hexToRgb("#1e3a8a"),
-        toolbar_field_border: hexToRgb("#f59e0b"),
-        toolbar_text: hexToRgb("#1d4ed8"),
-        tab_text: hexToRgb("#1e40af"),
-        tab_background_text: hexToRgb("#3b82f6"),
-        bookmark_text: hexToRgb("#1d4ed8"),
-        button_background_hover: hexToRgb("#fef3c7"),
-        ntp_background: hexToRgb("#eff6ff"),
-        ntp_text: hexToRgb("#1e3a8a"),
-        popup: hexToRgb("#eff6ff"),
-        popup_text: hexToRgb("#1e3a8a"),
-        popup_border: hexToRgb("#f59e0b"),
+        frame: hexToRgb("#1B1510"),
+        frame_inactive: hexToRgb("#100C08"),
+        toolbar: hexToRgb("#221C15"),
+        toolbar_field: hexToRgb("#2B2114"),
+        toolbar_field_text: hexToRgb("#F3E9DC"),
+        toolbar_field_border: hexToRgb("#3A2E1F"),
+        toolbar_text: hexToRgb("#D9C7A8"),
+        tab_text: hexToRgb("#F3E9DC"),
+        tab_background_text: hexToRgb("#F5A623"),
+        bookmark_text: hexToRgb("#F5A623"),
+        button_background_hover: hexToRgb("#3A2E1F"),
+        ntp_background: hexToRgb("#1B1510"),
+        ntp_text: hexToRgb("#F3E9DC"),
+        popup: hexToRgb("#1B1510"),
+        popup_text: hexToRgb("#F3E9DC"),
+        popup_border: hexToRgb("#3A2E1F"),
         icons: {
-          toolbar: hexToRgb("#1d4ed8"),
-          tab: hexToRgb("#3b82f6"),
-          bookmark: hexToRgb("#f59e0b"),
+          toolbar: hexToRgb("#F5A623"),
+          tab: hexToRgb("#F5A623"),
+          bookmark: hexToRgb("#C77F12"),
         },
       },
-      properties: { color_scheme: "light", ntp_alignment: "bottom" },
+      properties: { color_scheme: "dark", ntp_alignment: "bottom" },
     },
     copy: {
       actionTitle: "🔒 Guardi locked your browser tight, sweetie!",
@@ -354,6 +375,12 @@ export function applyModeToDocument(doc, modeOrManaged) {
     root.style.setProperty(key, value);
   }
 
+  // Swap the greeter mascot image to the per-mode one (backpack / shield / padlock).
+  const mascotFile = MASCOT_ASSET_BY_SLUG[ui.slug] || MASCOT_ASSET_BY_SLUG.sub;
+  for (const img of doc.querySelectorAll("img.guardi-mascot")) {
+    img.src = img.src.replace(/[^/?#]*(?=[?#]|$)/, mascotFile);
+  }
+
   if (doc.body) {
     const isBlocked = doc.body.classList.contains("guardi-blocked-page");
     const isPopup = doc.body.classList.contains("guardi-popup");
@@ -381,20 +408,6 @@ export function getBrowserTheme(modeOrManaged) {
   return getModeUi(modeOrManaged).browserTheme;
 }
 
-export function mascotSvg(primary, accent) {
-  const fill = primary || "#0EA5E9";
-  const inner = accent || "#7DD3FC";
-  return (
-    '<svg class="guardi-status-banner__mascot" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 136" aria-hidden="true">' +
-    `<path fill="${fill}" d="M60 8 104 30v48q0 40-44 54Q16 118 16 78V30L60 8Z"/>` +
-    `<path fill="${inner}" opacity=".35" d="M60 14l36 18v44q0 32-36 44Q24 108 24 76V32L60 14Z"/>` +
-    '<circle cx="48" cy="61" r="8" fill="#fff"/><circle cx="72" cy="61" r="8" fill="#fff"/>' +
-    '<circle cx="49.5" cy="63" r="3.5" fill="#0C4A6E"/><circle cx="73.5" cy="63" r="3.5" fill="#0C4A6E"/>' +
-    '<path stroke="#fff" stroke-width="3.5" stroke-linecap="round" d="M42 79q18 18 36 0"/>' +
-    "</svg>"
-  );
-}
-
 export function shieldOverlaySvg(primary, accent) {
   const fill = primary || "#0EA5E9";
   const inner = accent || "#7DD3FC";
@@ -407,4 +420,15 @@ export function shieldOverlaySvg(primary, accent) {
     '<path stroke="#fff" stroke-width="3.5" stroke-linecap="round" d="M42 79q18 18 36 0"/>' +
     "</svg>"
   );
+}
+
+/**
+ * Per-mode greeter mascot for injected UI (status banner). Uses the new PNG mascot art
+ * (same assets as the static pages) instead of the retired inline backpack/padlock SVGs.
+ */
+export function modeMascotSvg(slug) {
+  const api = typeof browser !== "undefined" ? browser : chrome;
+  const file = MASCOT_ASSET_BY_SLUG[slug] || MASCOT_ASSET_BY_SLUG.sub;
+  const src = api.runtime.getURL(`assets/${file}`);
+  return `<img class="guardi-status-banner__mascot" src="${src}" alt="" aria-hidden="true" />`;
 }

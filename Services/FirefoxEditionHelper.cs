@@ -40,7 +40,7 @@ internal static class FirefoxEditionHelper
         && ExtensionConfigResolver.Active?.IsFirefoxStoreReady != true;
 
     /// <summary>
-    /// AMO-signed XPI on Mozilla Firefox Release â€” never Developer Edition.
+    /// AMO-signed XPI on Mozilla Firefox Release — never Developer Edition.
     /// </summary>
     public static bool UseSignedReleaseTarget =>
         Config.ExtensionGuardEnforceFirefox

@@ -156,6 +156,26 @@ internal sealed class ExtensionEnforcementService : IDisposable
 
             if (active)
             {
+                // A supervised user can flip "Run in Private Windows" off in about:addons at
+                // any time — Firefox's private_browsing policy only sets the initial value,
+                // not a lock. Patching the profile file alone is not enough: Firefox owns this
+                // file and flushes its live (now-false) in-memory state back over our fix at
+                // its own next save/shutdown, silently undoing it. The fix only sticks once
+                // Firefox restarts and re-reads the corrected file with no stale state left to
+                // clobber it — so when drift is detected, force a restart, the same recourse
+                // already used for HandleOutdated above.
+                if (browser.Kind == BrowserKind.Firefox
+                    && FirefoxPrivateBrowsingEnforcer.EnsureGranted(cfg.FirefoxAddonId))
+                {
+                    AuditLog.Write(
+                        "SECURITY: Firefox private-browsing access for Guardi was revoked — restoring + restarting Firefox.");
+                    if (BrowserRestartThrottle.ShouldRestart(browser.Kind))
+                    {
+                        BrowserRestartThrottle.MarkRestarted(browser.Kind);
+                        BrowserInstallOrchestrator.RestartBrowser(browser, _log);
+                    }
+                }
+
                 if (live == false)
                     HandleUnresponsive(browser, restarting, now);
                 else if (IsOutdated(presence, browser.Kind))

@@ -31,6 +31,10 @@ internal sealed class FirefoxExtensionPolicy
                 {
                     ["installation_mode"] = "force_installed",
                     ["install_url"] = installUrl,
+                    // Without this, Firefox disables Guardi in Private Browsing windows by
+                    // default — a supervised user opening a private window gets zero
+                    // filtering. private_browsing forces it on without a user-facing toggle.
+                    ["private_browsing"] = true,
                 };
 
                 if (allowUnsigned)
@@ -91,6 +95,7 @@ internal sealed class FirefoxExtensionPolicy
                 {
                     ["installation_mode"] = "force_installed",
                     ["install_url"] = installUrl,
+                    ["private_browsing"] = true,
                 };
 
                 var extensions = EnsureObject(policies, "Extensions");
@@ -585,6 +590,7 @@ internal sealed class FirefoxExtensionPolicy
                     {
                         ["installation_mode"] = "force_installed",
                         ["install_url"] = installUrl,
+                        ["private_browsing"] = true,
                     };
                     if (TryWritePoliciesIfChanged(policyPath, root, out var created) && created)
                         changed = true;
@@ -592,10 +598,26 @@ internal sealed class FirefoxExtensionPolicy
                 }
 
                 var current = entry["install_url"]?.GetValue<string>();
-                if (string.Equals(current, installUrl, StringComparison.OrdinalIgnoreCase))
+                var entryChanged = false;
+
+                if (!string.Equals(current, installUrl, StringComparison.OrdinalIgnoreCase))
+                {
+                    entry["install_url"] = installUrl;
+                    entryChanged = true;
+                }
+
+                // Backfill for installs from an older Guardi build that predates this key.
+                bool? privateBrowsing = null;
+                try { privateBrowsing = entry["private_browsing"]?.GetValue<bool>(); } catch { /* malformed — overwrite */ }
+                if (privateBrowsing != true)
+                {
+                    entry["private_browsing"] = true;
+                    entryChanged = true;
+                }
+
+                if (!entryChanged)
                     continue;
 
-                entry["install_url"] = installUrl;
                 if (TryWritePoliciesIfChanged(policyPath, root, out var policyChanged) && policyChanged)
                     changed = true;
             }

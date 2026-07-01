@@ -81,6 +81,9 @@ internal static class ProcessGuardian
 
         SecurityRuntimeFlags.EnsureLoadedFromDisk();
 
+        // The agent is up: tell the SYSTEM guardian (if installed) to resume guarding.
+        SystemGuardian.ClearStandDown();
+
         try
         {
             _shutdownEvent = new EventWaitHandle(false, EventResetMode.ManualReset, ShutdownEventName);
@@ -103,6 +106,10 @@ internal static class ProcessGuardian
     public static void SignalIntentionalShutdown()
     {
         _shuttingDown = true;
+
+        // A PIN-authorized quit must also stop the SYSTEM guardian from relaunching us.
+        SystemGuardian.SignalStandDown();
+
         try
         {
             _shutdownEvent?.Set();
@@ -132,10 +139,10 @@ internal static class ProcessGuardian
             if (SecurityRuntimeFlags.ShouldBlockProcessKillers())
                 ProcessKillerDefense.Enforce(Environment.ProcessId);
 
-            if (!IsAlive(GuardMutexName))
+            if (!IsRealPeerAlive(GuardPidFile))
             {
                 SpawnGuard();
-                WaitForAppear(GuardMutexName, TimeSpan.FromSeconds(3));
+                WaitForPeer(GuardPidFile, TimeSpan.FromSeconds(3));
             }
 
             var guard = Attach(GuardPidFile);
@@ -186,7 +193,7 @@ internal static class ProcessGuardian
                 if (SecurityRuntimeFlags.ShouldBlockProcessKillers())
                     ProcessKillerDefense.Enforce(Environment.ProcessId);
 
-                if (!IsAlive(MainMutexName))
+                if (!IsRealPeerAlive(MainPidFile))
                 {
                     if (IntentionalShutdownRequested())
                         return;
@@ -195,7 +202,7 @@ internal static class ProcessGuardian
                         return;
 
                     SpawnMain();
-                    WaitForAppear(MainMutexName, TimeSpan.FromSeconds(5));
+                    WaitForPeer(MainPidFile, TimeSpan.FromSeconds(5));
                     continue;
                 }
 
@@ -296,29 +303,61 @@ internal static class ProcessGuardian
         }
     }
 
-    private static bool IsAlive(string mutexName)
+    /// <summary>
+    /// True only if the peer's PID file points at a live process that is actually this
+    /// same Guardi executable. A named mutex alone is not trusted: an attacker can create
+    /// <c>Local\EduGuardAgent.Main</c>/<c>.Guardian</c> themselves, then kill the real
+    /// process — the squatted mutex would otherwise make us believe the peer is alive and
+    /// suppress resurrection. Verifying a live PID with a matching image path defeats both
+    /// mutex squatting and "point the PID file at some unrelated process" tricks.
+    /// </summary>
+    private static bool IsRealPeerAlive(string pidFile)
     {
+        var process = Attach(pidFile);
+        if (process is null)
+            return false;
+
         try
         {
-            using var existing = Mutex.OpenExisting(mutexName);
-            return true;
-        }
-        catch (WaitHandleCannotBeOpenedException)
-        {
-            return false;
+            var theirs = TryGetImagePath(process);
+            if (theirs is null)
+                return true; // Can't read the image (rare) — assume alive to avoid a respawn storm.
+
+            var ours = Environment.ProcessPath;
+            return ours is null
+                || string.Equals(
+                    Path.GetFullPath(theirs),
+                    Path.GetFullPath(ours),
+                    StringComparison.OrdinalIgnoreCase);
         }
         catch
         {
-            return true;
+            return true; // Be conservative: don't respawn on a transient query failure.
+        }
+        finally
+        {
+            process.Dispose();
         }
     }
 
-    private static void WaitForAppear(string mutexName, TimeSpan timeout)
+    private static string? TryGetImagePath(Process process)
+    {
+        try
+        {
+            return process.MainModule?.FileName;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static void WaitForPeer(string pidFile, TimeSpan timeout)
     {
         var deadline = DateTime.UtcNow + timeout;
         while (DateTime.UtcNow < deadline)
         {
-            if (IsAlive(mutexName) || IntentionalShutdownRequested())
+            if (IsRealPeerAlive(pidFile) || IntentionalShutdownRequested())
                 return;
 
             Thread.Sleep(150);

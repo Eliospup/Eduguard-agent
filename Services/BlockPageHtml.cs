@@ -4,10 +4,11 @@ using EduGuardAgent.Profiles;
 
 internal static class BlockPageHtml
 {
-    public static string Build(string blockedHost, string? modeDisplayName = null)
+    public static string Build(string blockedHost, string? modeDisplayName = null, ModeTheme? theme = null)
     {
         var safeHost = System.Net.WebUtility.HtmlEncode(blockedHost);
         var modeLabel = modeDisplayName ?? AgentModeRegistry.Sub.DisplayName;
+        var t = theme ?? ModeTheme.Sub;
         return $$"""
 <!DOCTYPE html>
 <html lang="en">
@@ -23,13 +24,13 @@ internal static class BlockPageHtml
       align-items: center;
       justify-content: center;
       font-family: "Segoe UI", system-ui, sans-serif;
-      background: linear-gradient(145deg, #7b57c7 0%, #5a3e9c 55%, #4e3380 100%);
-      color: #2d2640;
+      background: linear-gradient(145deg, {{t.HeroStart}} 0%, {{t.HeroEnd}} 55%, {{t.PrimaryDark}} 100%);
+      color: {{t.Text}};
       padding: 24px;
     }
     .card {
       width: min(520px, 100%);
-      background: #fff;
+      background: {{t.CardBackground}};
       border-radius: 24px;
       padding: 40px 36px;
       text-align: center;
@@ -40,7 +41,7 @@ internal static class BlockPageHtml
       height: 88px;
       margin: 0 auto 20px;
       border-radius: 22px;
-      background: #ede7ff;
+      background: {{t.ChipBackground}};
       display: flex;
       align-items: center;
       justify-content: center;
@@ -48,18 +49,18 @@ internal static class BlockPageHtml
     }
     .mascot-note {
       font-size: 12px;
-      color: #9a92ad;
+      color: {{t.Muted}};
       margin-bottom: 8px;
     }
     h1 {
       font-size: 30px;
       margin-bottom: 10px;
-      color: #4e3380;
+      color: {{t.PrimaryDark}};
     }
     .host {
       display: inline-block;
-      background: #f7f4ff;
-      color: #6d4cb3;
+      background: {{t.AccentBackground}};
+      color: {{t.PrimaryDark}};
       font-weight: 700;
       padding: 8px 16px;
       border-radius: 10px;
@@ -67,22 +68,22 @@ internal static class BlockPageHtml
       word-break: break-all;
     }
     p {
-      color: #7a708c;
+      color: {{t.Muted}};
       line-height: 1.55;
       font-size: 16px;
     }
     .level {
       margin-top: 24px;
       padding-top: 20px;
-      border-top: 1px solid #e8e1f8;
-      color: #6d4cb3;
+      border-top: 1px solid {{t.GlassDivider}};
+      color: {{t.PrimaryDark}};
       font-weight: 600;
       font-size: 14px;
     }
     .note {
       margin-top: 14px;
       font-size: 13px;
-      color: #9a92ad;
+      color: {{t.Muted}};
     }
   </style>
 </head>

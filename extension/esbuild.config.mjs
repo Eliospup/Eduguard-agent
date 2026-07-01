@@ -18,6 +18,8 @@ mkdirSync(outdir, { recursive: true });
 
 const entryPoints = {
   content: join(root, "src", "content.js"),
+  "youtube-soft-limit": join(root, "src", "youtube-soft-limit.js"),
+  "category-content-guard": join(root, "src", "category-content-guard.js"),
   "guardi-shell": join(root, "src", "guardi-shell-page.js"),
   "guardi-newtab": join(root, "src", "guardi-newtab-page.js"),
 };
@@ -45,7 +47,7 @@ await build({
 });
 
 const publicDir = join(root, "public");
-for (const name of ["blur.css", "guardi-ui.css", "newtab.html", "popup.html", "blocked-search.html", "youtube-time-blocked.html", "assets", "models"]) {
+for (const name of ["blur.css", "guardi-ui.css", "newtab.html", "popup.html", "blocked-search.html", "youtube-time-blocked.html", "category-blocked.html", "assets", "models"]) {
   const from = join(publicDir, name);
   if (existsSync(from)) cpSync(from, join(outdir, name), { recursive: true });
 }
@@ -125,6 +127,14 @@ function convertToFirefoxManifest(manifest, outdir) {
     }
   }
 
+  // Pages reached via a webRequest redirect from web content (e.g. a blocked search typed
+  // in the Firefox address bar) are top-level navigations to moz-extension:// URLs, which
+  // Firefox only allows if they're web-accessible. Without this the redirect lands on a
+  // blank page instead of the block page.
+  for (const page of ["blocked-search.html", "youtube-time-blocked.html", "category-blocked.html", "newtab.html"]) {
+    if (existsSync(join(outdir, page))) webAccessible.push(page);
+  }
+
   const firefox = {
     manifest_version: 2,
     name: manifest.name,
@@ -149,6 +159,11 @@ function convertToFirefoxManifest(manifest, outdir) {
     applications: { gecko },
     browser_specific_settings: { gecko },
     web_accessible_resources: webAccessible,
+    // Firefox blanks the address bar for a native newtab override (unlike a scripted
+    // tabs.update redirect, which always shows the moz-extension:// URL). newtab.html
+    // renders a neutral, unbranded page itself when supervision is inactive, since this
+    // override can't be toggled off at runtime — see newtab-redirect.js.
+    chrome_url_overrides: { newtab: "newtab.html" },
   };
 
   return firefox;

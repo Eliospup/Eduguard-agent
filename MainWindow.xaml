@@ -67,20 +67,14 @@
                             Margin="0,0,14,0"
                             Padding="14,8"
                             FontSize="13" />
-                    <views:GuardiMascot Width="52" Height="58" Margin="0,0,12,0"
-                                        VerticalAlignment="Center"
-                                        Visibility="{Binding ShowMascot, Converter={StaticResource BoolToVisibility}}" />
-                    <Border Width="44" Height="44"
-                            CornerRadius="{DynamicResource SmallCornerRadius}"
-                            Background="#33FFFFFF"
-                            Margin="0,0,12,0"
-                            VerticalAlignment="Center"
-                            Visibility="{Binding IsMatureUi, Converter={StaticResource BoolToVisibility}}">
-                        <views:GuardiShieldIcon Width="28"
-                                                Height="32"
-                                                HorizontalAlignment="Center"
-                                                VerticalAlignment="Center" />
-                    </Border>
+                    <Grid Margin="0,0,12,0" VerticalAlignment="Center">
+                        <views:GuardiMascot Width="76" Height="86"
+                                            Visibility="{Binding ShowMascotGuardi, Converter={StaticResource BoolToVisibility}}" />
+                        <views:TrustedSubMascot Width="76" Height="86"
+                                            Visibility="{Binding ShowMascotTrustedSub, Converter={StaticResource BoolToVisibility}}" />
+                        <views:RestrictedSubMascot Width="76" Height="86"
+                                            Visibility="{Binding ShowMascotRestrictedSub, Converter={StaticResource BoolToVisibility}}" />
+                    </Grid>
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock Text="EduGuard" FontSize="14" Foreground="{DynamicResource OnPrimaryMutedBrush}" />
                         <TextBlock Text="{Binding AppSubtitle}"
@@ -211,35 +205,23 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
-                            <views:GuardiMascot Width="76"
-                                                Height="86"
-                                                VerticalAlignment="Top"
-                                                Margin="0,0,20,0"
-                                                Visibility="{Binding ShowMascot, Converter={StaticResource BoolToVisibility}}" />
-
-                            <Border Width="76"
-                                    Height="76"
-                                    CornerRadius="22"
-                                    Background="{DynamicResource HomeSurfaceBrush}"
-                                    BorderBrush="{DynamicResource HomeSurfaceBorderBrush}"
-                                    BorderThickness="1"
-                                    VerticalAlignment="Top"
-                                    Margin="0,0,20,0"
-                                    Visibility="{Binding IsMatureUi, Converter={StaticResource BoolToVisibility}}">
-                                <views:GuardiShieldIcon Width="52"
-                                                        Height="58"
-                                                        HorizontalAlignment="Center"
-                                                        VerticalAlignment="Center" />
-                            </Border>
+                            <Grid VerticalAlignment="Top" Margin="0,0,20,0">
+                                <views:GuardiMascot Width="76" Height="86"
+                                                Visibility="{Binding ShowMascotGuardi, Converter={StaticResource BoolToVisibility}}" />
+                                <views:TrustedSubMascot Width="76" Height="86"
+                                                Visibility="{Binding ShowMascotTrustedSub, Converter={StaticResource BoolToVisibility}}" />
+                                <views:RestrictedSubMascot Width="76" Height="86"
+                                                Visibility="{Binding ShowMascotRestrictedSub, Converter={StaticResource BoolToVisibility}}" />
+                            </Grid>
 
                             <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Left">
-                                <TextBlock Text="{Binding HeaderCenterTitle}"
+                                <TextBlock Text="{Binding HomeGreetingTitle}"
                                            HorizontalAlignment="Left"
                                            TextAlignment="Left"
                                            FontSize="30"
                                            FontWeight="Bold"
                                            Foreground="{DynamicResource TextBrush}" />
-                                <TextBlock Text="{Binding HeaderCenterSubtitle}"
+                                <TextBlock Text="{Binding HomeGreetingSubtitle}"
                                            HorizontalAlignment="Left"
                                            TextAlignment="Left"
                                            FontSize="15"
@@ -292,23 +274,25 @@
                             </StackPanel>
 
                             <StackPanel Grid.Column="2"
+                                        Orientation="Horizontal"
                                         HorizontalAlignment="Right"
-                                        VerticalAlignment="Top">
-                                <Button Content="Min"
+                                        VerticalAlignment="Top"
+                                        Visibility="{Binding IsKioskActive, Converter={StaticResource BoolToVisibilityInverse}}">
+                                <Button Content="&#x2212;"
                                         Style="{StaticResource SubtleButton}"
                                         Click="OnMinimizeClick"
                                         ToolTip="Minimize"
-                                        Padding="14,6"
-                                        FontSize="14"
-                                        Margin="0,0,0,8"
-                                        Visibility="{Binding IsKioskActive, Converter={StaticResource BoolToVisibilityInverse}}" />
-                                <Button Content="Close"
+                                        Width="32" Height="32"
+                                        Padding="0"
+                                        FontSize="16"
+                                        Margin="0,0,6,0" />
+                                <Button Content="&#x2715;"
                                         Style="{StaticResource SubtleButton}"
                                         Click="OnCloseClick"
-                                        ToolTip="Close EduGuard"
-                                        Padding="14,6"
-                                        FontSize="12"
-                                        Visibility="{Binding IsKioskActive, Converter={StaticResource BoolToVisibilityInverse}}" />
+                                        ToolTip="Close"
+                                        Width="32" Height="32"
+                                        Padding="0"
+                                        FontSize="14" />
                             </StackPanel>
                         </Grid>
                     </Border>
@@ -481,7 +465,8 @@
                                                     <StackPanel Grid.Column="1">
                                                         <TextBlock Text="{Binding Label}"
                                                                    Foreground="{DynamicResource MutedBrush}"
-                                                                   FontSize="12" />
+                                                                   FontSize="12"
+                                                                   TextWrapping="Wrap" />
                                                         <TextBlock Text="{Binding Value}"
                                                                    TextWrapping="Wrap"
                                                                    FontSize="13"
@@ -524,41 +509,42 @@
                                            FontSize="16"
                                            FontWeight="Bold"
                                            Foreground="{DynamicResource TextBrush}" />
-                                <TextBlock Text="Infraction counter"
+                                <TextBlock Text="Trust meter"
                                            Foreground="{DynamicResource MutedBrush}"
                                            FontSize="12"
                                            Margin="0,4,0,18" />
 
-                                <Grid Margin="0,0,0,16">
+                                <Grid Margin="0,0,0,12">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <Border Width="72"
-                                            Height="72"
-                                            CornerRadius="20"
+                                    <Border Width="60"
+                                            Height="60"
+                                            CornerRadius="18"
                                             Background="{DynamicResource PrimaryBrush}"
                                             VerticalAlignment="Center"
-                                            Margin="0,0,16,0">
-                                        <TextBlock Text="{Binding InfractionCount}"
+                                            Margin="0,0,14,0">
+                                        <TextBlock Text="{Binding TrustValue}"
                                                    Foreground="White"
-                                                   FontSize="28"
+                                                   FontSize="22"
                                                    FontWeight="Bold"
                                                    HorizontalAlignment="Center"
                                                    VerticalAlignment="Center" />
                                     </Border>
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                        <TextBlock Text="current infractions"
+                                        <TextBlock Text="trust out of 100"
                                                    Foreground="{DynamicResource MutedBrush}"
                                                    FontSize="12" />
-                                        <TextBlock Text="{Binding DisciplineProgressText}"
-                                                   Foreground="{DynamicResource TextBrush}"
-                                                   FontSize="14"
-                                                   FontWeight="SemiBold"
-                                                   TextWrapping="Wrap"
-                                                   Margin="0,4,0,0" />
                                     </StackPanel>
                                 </Grid>
+
+                                <TextBlock Text="{Binding DisciplineProgressText}"
+                                           Foreground="{DynamicResource TextBrush}"
+                                           FontSize="14"
+                                           FontWeight="SemiBold"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,12" />
 
                                 <ProgressBar Style="{StaticResource GuardiProgressBar}"
                                              Value="{Binding DisciplineProgressValue, Mode=OneWay}"
@@ -570,7 +556,8 @@
                                         BorderBrush="{DynamicResource HomeSurfaceBorderBrush}"
                                         BorderThickness="1"
                                         CornerRadius="18"
-                                        Padding="14,12">
+                                        Padding="14,12"
+                                        Visibility="{Binding ShowDisciplineStatusBox, Converter={StaticResource BoolToVisibility}}">
                                     <StackPanel>
                                         <TextBlock Text="{Binding DisciplineModeStatus}"
                                                    Foreground="{DynamicResource TextBrush}"
@@ -590,6 +577,103 @@
                                         </StackPanel>
                                     </StackPanel>
                                 </Border>
+
+                                <Border Height="1" Background="{DynamicResource GlassDividerBrush}" Margin="0,18,0,14" />
+
+                                <TextBlock Text="{Binding InfractionsTitle}"
+                                           FontSize="13"
+                                           FontWeight="Bold"
+                                           Foreground="{DynamicResource TextBrush}"
+                                           Margin="0,0,0,10"
+                                           Visibility="{Binding HasRecentInfractions, Converter={StaticResource BoolToVisibility}}" />
+
+                                <ScrollViewer MaxHeight="180"
+                                              VerticalScrollBarVisibility="Auto"
+                                              Padding="0,0,6,0"
+                                              Visibility="{Binding HasRecentInfractions, Converter={StaticResource BoolToVisibility}}">
+                                    <ScrollViewer.Resources>
+                                        <Style TargetType="ScrollBar">
+                                            <Setter Property="Width" Value="5" />
+                                            <Setter Property="MinWidth" Value="5" />
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="ScrollBar">
+                                                        <Track x:Name="PART_Track"
+                                                               IsDirectionReversed="True"
+                                                               Margin="1,3,1,3">
+                                                            <Track.Thumb>
+                                                                <Thumb>
+                                                                    <Thumb.Template>
+                                                                        <ControlTemplate TargetType="Thumb">
+                                                                            <Border Background="#38FFFFFF"
+                                                                                    CornerRadius="3" />
+                                                                        </ControlTemplate>
+                                                                    </Thumb.Template>
+                                                                </Thumb>
+                                                            </Track.Thumb>
+                                                        </Track>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </ScrollViewer.Resources>
+                                    <ItemsControl ItemsSource="{Binding Infractions}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="{DynamicResource HomeSurfaceBrush}"
+                                                        BorderBrush="{DynamicResource HomeSurfaceBorderBrush}"
+                                                        BorderThickness="1"
+                                                        CornerRadius="12"
+                                                        Padding="12,10"
+                                                        Margin="0,0,0,8">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <StackPanel Grid.Column="0">
+                                                            <TextBlock Text="{Binding Label}"
+                                                                       Foreground="{DynamicResource TextBrush}"
+                                                                       FontWeight="SemiBold"
+                                                                       FontSize="12"
+                                                                       TextWrapping="Wrap" />
+                                                            <TextBlock Text="{Binding Detail}"
+                                                                       Foreground="{DynamicResource MutedBrush}"
+                                                                       FontSize="11"
+                                                                       TextWrapping="Wrap"
+                                                                       Margin="0,2,0,0" />
+                                                        </StackPanel>
+                                                        <StackPanel Grid.Column="1"
+                                                                    HorizontalAlignment="Right"
+                                                                    Margin="10,0,0,0">
+                                                            <TextBlock Text="{Binding Time}"
+                                                                       Foreground="{DynamicResource MutedBrush}"
+                                                                       FontSize="11"
+                                                                       HorizontalAlignment="Right" />
+                                                            <Border Background="{DynamicResource WarningBrush}"
+                                                                    CornerRadius="999"
+                                                                    Padding="7,2"
+                                                                    Margin="0,4,0,0"
+                                                                    HorizontalAlignment="Right"
+                                                                    Visibility="{Binding ShowTrustPointsLost, Converter={StaticResource BoolToVisibility}}">
+                                                                <TextBlock Text="{Binding TrustPointsLostText}"
+                                                                           Foreground="White"
+                                                                           FontSize="10"
+                                                                           FontWeight="Bold" />
+                                                            </Border>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+
+                                <TextBlock Text="{Binding InfractionsGood}"
+                                           Foreground="{DynamicResource MutedBrush}"
+                                           FontSize="12"
+                                           TextWrapping="Wrap"
+                                           Visibility="{Binding HasRecentInfractions, Converter={StaticResource BoolToVisibilityInverse}}" />
                             </StackPanel>
                         </Border>
                     </Grid>
@@ -905,10 +989,14 @@
                           Padding="36,22,36,28"
                           Visibility="{Binding IsDetailPage, Converter={StaticResource BoolToVisibility}}">
                 <StackPanel MaxWidth="720" HorizontalAlignment="Center" CacheMode="BitmapCache">
-                    <views:GuardiMascot Width="96" Height="110"
-                                         HorizontalAlignment="Center"
-                                         Margin="0,0,0,16"
-                                         Visibility="{Binding ShowMascot, Converter={StaticResource BoolToVisibility}}" />
+                    <Grid HorizontalAlignment="Center" Margin="0,0,0,16">
+                        <views:GuardiMascot Width="96" Height="110"
+                                         Visibility="{Binding ShowMascotGuardi, Converter={StaticResource BoolToVisibility}}" />
+                        <views:TrustedSubMascot Width="96" Height="110"
+                                         Visibility="{Binding ShowMascotTrustedSub, Converter={StaticResource BoolToVisibility}}" />
+                        <views:RestrictedSubMascot Width="96" Height="110"
+                                         Visibility="{Binding ShowMascotRestrictedSub, Converter={StaticResource BoolToVisibility}}" />
+                    </Grid>
                     <TextBlock Text="{Binding DetailPageTitle}"
                                FontSize="28"
                                FontWeight="Bold"
@@ -1129,10 +1217,14 @@
                           Padding="36,22,36,28"
                           Visibility="{Binding IsKioskAppsPage, Converter={StaticResource BoolToVisibility}}">
                 <StackPanel MaxWidth="980" HorizontalAlignment="Center" CacheMode="BitmapCache">
-                    <views:GuardiMascot Width="96" Height="110"
-                                         HorizontalAlignment="Center"
-                                         Margin="0,0,0,16"
-                                         Visibility="{Binding ShowMascot, Converter={StaticResource BoolToVisibility}}" />
+                    <Grid HorizontalAlignment="Center" Margin="0,0,0,16">
+                        <views:GuardiMascot Width="96" Height="110"
+                                         Visibility="{Binding ShowMascotGuardi, Converter={StaticResource BoolToVisibility}}" />
+                        <views:TrustedSubMascot Width="96" Height="110"
+                                         Visibility="{Binding ShowMascotTrustedSub, Converter={StaticResource BoolToVisibility}}" />
+                        <views:RestrictedSubMascot Width="96" Height="110"
+                                         Visibility="{Binding ShowMascotRestrictedSub, Converter={StaticResource BoolToVisibility}}" />
+                    </Grid>
 
                     <TextBlock Text="{x:Static prof:KioskCopy.AppsHint}"
                                Foreground="{DynamicResource OnPrimaryMutedBrush}"
@@ -1202,7 +1294,7 @@
                             Margin="0,8,0,0"
                             Visibility="{Binding HasKioskApps, Converter={StaticResource BoolToVisibilityInverse}}">
                         <StackPanel>
-                            <TextBlock Text="Ã°Å¸â€â€™"
+                            <TextBlock Text="🔒"
                                        FontSize="44"
                                        HorizontalAlignment="Center" />
                             <TextBlock Text="{x:Static prof:KioskCopy.EmptyTitle}"
@@ -1257,8 +1349,14 @@
                     BorderBrush="{DynamicResource SkyBorderBrush}"
                     BorderThickness="1">
                 <StackPanel>
-                    <views:GuardiMascot Width="110" Height="126" HorizontalAlignment="Center"
-                                        Visibility="{Binding ShowMascot, Converter={StaticResource BoolToVisibility}}" />
+                    <Grid HorizontalAlignment="Center">
+                        <views:GuardiMascot Width="110" Height="126"
+                                        Visibility="{Binding ShowMascotGuardi, Converter={StaticResource BoolToVisibility}}" />
+                        <views:TrustedSubMascot Width="110" Height="126"
+                                        Visibility="{Binding ShowMascotTrustedSub, Converter={StaticResource BoolToVisibility}}" />
+                        <views:RestrictedSubMascot Width="110" Height="126"
+                                        Visibility="{Binding ShowMascotRestrictedSub, Converter={StaticResource BoolToVisibility}}" />
+                    </Grid>
                     <Border Width="56" Height="56"
                             CornerRadius="{DynamicResource SmallCornerRadius}"
                             Background="{DynamicResource AccentBrush}"

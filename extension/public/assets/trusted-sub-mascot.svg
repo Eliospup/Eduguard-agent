@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 136" fill="none" aria-hidden="true">
+  <ellipse cx="60" cy="127" rx="32" ry="5" fill="#22000000"/>
+  <!-- Main body -->
+  <rect x="14" y="36" width="92" height="88" rx="36" fill="#33E6CD"/>
+  <!-- Side pocket -->
+  <rect x="4" y="66" width="26" height="48" rx="13" fill="#1FA897"/>
+  <path stroke="#11202A" stroke-width="2" opacity=".4" d="M17 74 17 108"/>
+  <!-- Zipper pull + zip lines -->
+  <circle cx="60" cy="33" r="5" fill="#11202A" opacity=".5"/>
+  <path stroke="#11202A" stroke-width="2" opacity=".35" d="M60 38 60 58"/>
+  <path stroke="#11202A" stroke-width="2" opacity=".35" d="M60 116 60 122"/>
+  <!-- Graduation cap -->
+  <path stroke="#E8B84B" stroke-width="2" stroke-linecap="round" d="M60 26 39 16"/>
+  <ellipse cx="38.5" cy="15.5" rx="4.5" ry="5.5" fill="#E8B84B"/>
+  <path fill="#1B1B1F" d="M28 30 60 14 92 30 60 46Z"/>
+  <rect x="45" y="32" width="30" height="12" rx="3" fill="#1B1B1F"/>
+  <circle cx="60.5" cy="27.5" r="3.5" fill="#1B1B1F"/>
+  <!-- Face -->
+  <ellipse cx="45" cy="77" rx="11" ry="13" fill="#fff"/>
+  <ellipse cx="75" cy="77" rx="11" ry="13" fill="#fff"/>
+  <circle cx="45.5" cy="77.5" r="5.5" fill="#11202A"/>
+  <circle cx="75.5" cy="77.5" r="5.5" fill="#11202A"/>
+  <circle cx="45" cy="76" r="2" fill="#fff"/>
+  <circle cx="75" cy="76" r="2" fill="#fff"/>
+  <ellipse cx="34" cy="91.5" rx="6" ry="3.5" fill="#0F1822" opacity=".18"/>
+  <ellipse cx="86" cy="91.5" rx="6" ry="3.5" fill="#0F1822" opacity=".18"/>
+  <path fill="#11202A" d="M42 94Q60 118 78 94Q69 104 60 104Q51 104 42 94Z"/>
+  <ellipse cx="55" cy="98.5" rx="5" ry="2.5" fill="#fff" opacity=".45"/>
+</svg>

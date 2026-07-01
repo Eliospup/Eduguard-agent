@@ -171,6 +171,11 @@ internal sealed class AgentLoop
         if (heartbeat?.Settings is not { } settings || !settings.TryGetExitPin(out var pin))
             return false;
 
+        // In local mode the Dom manages the PIN on-device; a PIN still configured on the web
+        // dashboard must not override or resurrect it.
+        if (_isLocalMode())
+            return _exitPin.IsRequired;
+
         _exitPin.UpdateFromServer(pin);
         return _exitPin.IsRequired;
     }

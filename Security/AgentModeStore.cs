@@ -6,31 +6,71 @@ namespace EduGuardAgent.Security;
 
 internal sealed class AgentModeStore
 {
-    private static readonly string SettingsPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        Config.AgentDataDir,
-        "agent_mode.json");
+    private static string SettingsPath => SecureDataPaths.PathFor("agent_mode.json");
+
+    // Records that the agent has been set up at least once. Once present, a missing or
+    // tampered mode file is treated as a bypass attempt (delete-to-get-the-default)
+    // rather than a fresh install, so we fail closed instead of relaxing restrictions.
+    private static string ConfiguredMarkerPath => SecureDataPaths.PathFor(".mode_configured");
 
     public StoredAgentMode Load()
     {
-        if (!File.Exists(SettingsPath))
-            return StoredAgentMode.Default;
+        var status = StateProtection.TryRead(SettingsPath, out var json);
 
-        try
+        if (status == StateReadStatus.Ok)
         {
-            var json = File.ReadAllText(SettingsPath);
-            return JsonSerializer.Deserialize<StoredAgentMode>(json) ?? StoredAgentMode.Default;
+            try
+            {
+                var stored = JsonSerializer.Deserialize<StoredAgentMode>(json);
+                if (stored is not null)
+                {
+                    MarkConfigured();
+                    return stored;
+                }
+            }
+            catch
+            {
+                // Valid envelope but unparseable contents — treat as tampering below.
+            }
+
+            status = StateReadStatus.Tampered;
         }
-        catch
+
+        if (status == StateReadStatus.Tampered)
         {
-            return StoredAgentMode.Default;
+            AuditLog.Write("SECURITY: agent_mode state failed integrity check — failing closed to Restricted Sub.");
+            return StoredAgentMode.MostRestrictive;
         }
+
+        // Missing.
+        if (HasBeenConfigured())
+        {
+            AuditLog.Write("SECURITY: agent_mode state missing after setup — failing closed to Restricted Sub.");
+            return StoredAgentMode.MostRestrictive;
+        }
+
+        return StoredAgentMode.Default;
     }
 
     public void Save(StoredAgentMode stored)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath)!);
-        File.WriteAllText(SettingsPath, JsonSerializer.Serialize(stored));
+        StateProtection.Write(SettingsPath, JsonSerializer.Serialize(stored));
+        MarkConfigured();
+    }
+
+    private static bool HasBeenConfigured() => File.Exists(ConfiguredMarkerPath);
+
+    private static void MarkConfigured()
+    {
+        try
+        {
+            if (!File.Exists(ConfiguredMarkerPath))
+                StateProtection.Write(ConfiguredMarkerPath, "1");
+        }
+        catch
+        {
+            // Best-effort; failure only weakens the delete-to-bypass guard, never blocks startup.
+        }
     }
 
     internal sealed class StoredAgentMode
@@ -42,5 +82,13 @@ internal sealed class AgentModeStore
         public ModeFeatures Features { get; init; } = ModeFeatures.ForTrustedSub;
 
         public static StoredAgentMode Default => new();
+
+        /// <summary>Safe posture applied when stored state is missing-after-setup or tampered.</summary>
+        public static StoredAgentMode MostRestrictive => new()
+        {
+            Slug = AgentModeSlugs.RestrictedSub,
+            ScreenTimeLimitMinutes = AgentModeRegistry.RestrictedSub.Defaults.ScreenTimeLimitMinutes,
+            Features = ModeFeatures.ForRestrictedSub,
+        };
     }
 }

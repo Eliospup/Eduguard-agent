@@ -8,9 +8,20 @@ import {
 import { fetchAgentShieldState } from "./agent-bridge.js";
 
 const api = typeof browser !== "undefined" ? browser : chrome;
+// On Firefox the new-tab page is a native chrome_url_overrides.newtab that can't be
+// toggled off. "Releasing" it to about:newtab just reloads this same override page,
+// so when supervision is off we leave the new-tab page alone and let
+// guardi-newtab-page.js render it neutral instead of redirecting in a loop.
+const isFirefox = typeof browser !== "undefined";
 const STATE_LOCAL_KEY = "guardiShieldState";
 const MSG_GET_STATE = "guardi:get-state";
 const MSG_SHIELD_STATE = "guardi:shield-state";
+
+// State arrives via three independent channels (poll response, storage.onChanged,
+// tabs broadcast) that can resolve out of order during a mode switch. Track the
+// timestamp of the last applied snapshot so a late-arriving stale one can't flash
+// the page back to the previous mode.
+let lastAppliedTs = 0;
 
 function applyMode(managed) {
   const ui = applyModeToDocument(document, managed);
@@ -116,10 +127,15 @@ function isGuardiNewTabPage() {
 function wireBlockedBackButton() {
   const back = document.getElementById("guardi-back");
   if (!back) return;
-  back.href = getNativeNewTabUrl();
+  // Navigate to our own new-tab page, not a privileged about:/chrome:// URL — a content
+  // script can't location.replace() those, and tabs.update() to them is blocked too, so
+  // the button did nothing. newtab.html is extension-owned (always reachable) and already
+  // renders neutral when supervision is inactive.
+  const target = api.runtime.getURL("newtab.html");
+  back.href = target;
   back.addEventListener("click", (event) => {
     event.preventDefault();
-    releaseToNativeNewTab();
+    location.assign(target);
   });
 }
 
@@ -215,16 +231,28 @@ function readYoutubeBlocked(managed) {
 
 function applySnapshot(snapshot) {
   if (!snapshot) return;
+  if (typeof snapshot.ts === "number") {
+    if (snapshot.ts < lastAppliedTs) return;
+    lastAppliedTs = snapshot.ts;
+  }
+  const active = !!snapshot.active;
+
+  // guardi-newtab-page.js owns mode/copy/greeting on the new-tab page via its own
+  // watcher; this script's only job there is releasing a stale Guardi tab back to the
+  // browser's native new tab when supervision goes inactive. Applying mode here too
+  // raced with newtab-page.js's own apply and caused the flash on mode changes.
+  if (isGuardiNewTabPage()) {
+    // Firefox: don't redirect (it reloads the override). guardi-newtab-page.js shows
+    // the neutral page instead. Chromium can release to its real new tab.
+    if (!active && !isFirefox) releaseToNativeNewTab();
+    return;
+  }
+
   const params = new URLSearchParams(location.search);
   const reason = params.get("reason") || snapshot.managed?.youtubeBlockReason || "limit";
-  const active = !!snapshot.active;
   const youtubeBlocked = readYoutubeBlocked(snapshot.managed);
 
   if (!active) {
-    if (isGuardiNewTabPage()) {
-      releaseToNativeNewTab();
-      return;
-    }
     if (isYoutubeLimitPage() && youtubeBlocked) {
       const ui = applyMode(snapshot.managed);
       applyYoutubeLimitCopy(ui, snapshot.managed, reason);
@@ -242,13 +270,14 @@ function applySnapshot(snapshot) {
 }
 
 async function resolveAgentSnapshot() {
+  const ts = Date.now();
   const agent = await fetchAgentShieldState();
   const active = agent.agentRunning === true && agent.active === true;
   const managed =
     agent.managed && typeof agent.managed === "object"
       ? { ...agent.managed, shieldActive: active ? agent.managed.shieldActive !== false : false }
       : { shieldActive: false };
-  return { active, managed };
+  return { active, managed, ts };
 }
 
 function requestState() {
@@ -266,7 +295,7 @@ function requestState() {
 
     api.runtime.sendMessage({ type: MSG_GET_STATE }, (resp) => {
       if (!api.runtime.lastError && resp && typeof resp.active === "boolean") {
-        applySnapshot({ active: resp.active, managed: resp.managed });
+        applySnapshot({ active: resp.active, managed: resp.managed, ts: resp.ts });
         return;
       }
       resolveAgentSnapshot().then(applySnapshot);
@@ -282,15 +311,16 @@ setInterval(requestState, 3000);
 
 api.storage.onChanged.addListener((changes, area) => {
   if (area !== "local" || !changes[STATE_LOCAL_KEY]) return;
-  const next = changes[STATE_LOCAL_KEY].newValue;
-  if (!next?.active) applySnapshot(next);
-  else requestState();
+  // The stored value is the exact snapshot background just published — re-querying it via
+  // requestState() only added another async hop with no new information, and was part of
+  // the redundant-channel chatter that caused the mode-change flash.
+  applySnapshot(changes[STATE_LOCAL_KEY].newValue);
 });
 
 try {
   api.runtime.onMessage.addListener((msg) => {
     if (msg?.type !== MSG_SHIELD_STATE) return;
-    applySnapshot({ active: msg.active, managed: msg.managed });
+    applySnapshot({ active: msg.active, managed: msg.managed, ts: msg.ts });
   });
 } catch {
   // ignore

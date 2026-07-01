@@ -3,7 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Name="Root"
              SnapsToDevicePixels="True">
-    <Viewbox Stretch="Uniform"
+    <Grid>
+      <Viewbox x:Name="VectorFallback" Stretch="Uniform"
              Width="{Binding ElementName=Root, Path=Width}"
              Height="{Binding ElementName=Root, Path=Height}">
         <Canvas Width="120" Height="136">
@@ -37,5 +38,7 @@
                   StrokeEndLineCap="Round"
                   Data="M42,79 Q60,97 78,79" />
         </Canvas>
-    </Viewbox>
+      </Viewbox>
+      <Image x:Name="PngImage" Stretch="Uniform" Visibility="Collapsed" />
+    </Grid>
 </UserControl>

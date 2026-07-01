@@ -20,18 +20,24 @@
 
       <main class="guardi-page" role="main">
         <div class="guardi-hero">
+          <div class="guardi-sober-icon" aria-hidden="true">
+            <svg width="24" height="27" viewBox="0 0 60 68" fill="none">
+              <path d="M30 4 52 14v24q0 20-22 27Q8 58 8 38V14L30 4Z" fill="var(--guardi-blue)" />
+              <path d="M21 33 27 39 40 26" stroke="var(--guardi-card-bg)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </div>
           <div class="guardi-mascot-wrap">
             <img
               class="guardi-mascot"
-              src="assets/guardi-mascot.svg"
+              src="assets/guardi-mascot.png"
               width="168"
               height="190"
               alt=""
               aria-hidden="true"
             />
-            <div class="guardi-speech-bubble" aria-live="polite">
-              <p id="guardi-greeting">Hi sweetie! Guardi's got your back today.</p>
-            </div>
+          </div>
+          <div class="guardi-speech-bubble" aria-live="polite">
+            <p id="guardi-greeting">Hi sweetie! Guardi's got your back today.</p>
           </div>
           <h1 class="guardi-title" data-guardi="title">Your cozy safe browser</h1>
           <p class="guardi-subtitle" data-guardi="subtitle">
@@ -59,7 +65,6 @@
         </div>
       </main>
     </div>
-    <script src="guardi-shell.js"></script>
     <script src="guardi-newtab.js"></script>
   </body>
 </html>

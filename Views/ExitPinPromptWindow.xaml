@@ -27,10 +27,11 @@
         </Border.Effect>
 
         <StackPanel>
-            <views:GuardiMascot x:Name="Mascot"
-                                Width="72" Height="82"
-                                HorizontalAlignment="Center"
-                                Margin="0,0,0,12" />
+            <Grid HorizontalAlignment="Center" Margin="0,0,0,12">
+                <views:GuardiMascot x:Name="Mascot" Width="72" Height="82" />
+                <views:TrustedSubMascot x:Name="TrustedSubMascotIcon" Width="72" Height="82" />
+                <views:RestrictedSubMascot x:Name="RestrictedSubMascotIcon" Width="72" Height="82" />
+            </Grid>
 
             <TextBlock x:Name="TitleText"
                        FontSize="20"

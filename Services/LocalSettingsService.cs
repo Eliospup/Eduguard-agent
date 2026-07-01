@@ -140,11 +140,8 @@ internal sealed class LocalSettingsService
 
     public void EnsureExitPinSeeded()
     {
-        if (_catalog.ExitPin is not null)
-            return;
-
-        if (_exitPin.TryGetActivePin(out var pin))
-            _catalog.ExitPin = pin;
+        // No-op: the exit PIN is no longer mirrored into the catalog (which is plaintext on
+        // disk). The hashed verifier in ExitPinStorage is the single source of truth.
     }
 
     public void ApplyActiveMode()
@@ -272,6 +269,16 @@ internal sealed class LocalSettingsService
             EscalationHours = _catalog.PunishmentEscalationHours,
             EscalationMinutes = _catalog.PunishmentEscalationMinutes,
             InfractionExtensions = _catalog.PunishmentExtensions.ToSettings().ToPayload(),
+            RegenPerHour = _catalog.TrustRegenPerHour,
+            InfractionWeights = new InfractionWeightsPayload
+            {
+                VpnAttempt = _catalog.TrustWeightVpn,
+                BypassAttempt = _catalog.TrustWeightBypass,
+                BlockedAppRepeated = _catalog.TrustWeightBlockedApp,
+                BlockedSearch = _catalog.TrustWeightBlockedSearch,
+                StudyTimeViolation = _catalog.TrustWeightStudy,
+                LimitIgnored = _catalog.TrustWeightLimit,
+            },
             InfractionKinds = new InfractionKindsPayload
             {
                 VpnAttempt = _catalog.InfractionVpnAttempt,
@@ -289,18 +296,14 @@ internal sealed class LocalSettingsService
 
     private void ApplyExitPinFromCatalog()
     {
-        // null = keep the PIN already loaded from storage / server
-        if (_catalog.ExitPin is null)
-            return;
-
-        if (_catalog.ExitPin.Length == 0)
+        // The exit PIN is managed solely through ExitPinStorage (the dashboard's Save/Remove).
+        // A value left in the catalog by an older build must NEVER re-inject or clear the
+        // active PIN — that caused a stale PIN to come back on every restart. Just scrub it.
+        if (_catalog.ExitPin is not null)
         {
-            _exitPin.UpdateFromServer(null);
-            return;
+            _catalog.ExitPin = null;
+            SaveCatalog();
         }
-
-        if (ExitPinService.IsValidFormat(_catalog.ExitPin))
-            _exitPin.UpdateFromServer(_catalog.ExitPin);
     }
 
     public void HydrateImageShieldCatalogFromPolicy()

@@ -570,6 +570,18 @@ function createObservers() {
           if (node instanceof HTMLImageElement) processImage(node);
           else scheduleScan(node);
         }
+        // Drop the shield the moment a blocked image is recycled out of the DOM (infinite
+        // scroll, virtualized lists) instead of waiting for the next scroll/resize tick —
+        // see positionShield's isConnected check for why this matters.
+        for (const node of mutation.removedNodes) {
+          if (node.nodeType !== 1) continue;
+          if (node instanceof HTMLImageElement && shieldedImages.has(node)) removeShield(node);
+          else if (node.querySelectorAll) {
+            for (const img of node.querySelectorAll("img")) {
+              if (shieldedImages.has(img)) removeShield(img);
+            }
+          }
+        }
       }
     });
   }
@@ -698,6 +710,16 @@ function ensureShield(img) {
 function positionShield(img) {
   const shield = shields.get(img);
   if (!shield) return;
+
+  // Images recycled out of the DOM (infinite scroll, virtualization) must drop their
+  // shield instead of just hiding it forever — otherwise shieldedImages only grows for
+  // the rest of the session, keeping the (still-referenced) elements un-GC'd and making
+  // every scroll/resize tick re-layout an ever-larger set of dead nodes.
+  if (!img.isConnected) {
+    removeShield(img);
+    return;
+  }
+
   const r = img.getBoundingClientRect();
   if (r.width < 2 || r.height < 2 || r.bottom < 0 || r.top > window.innerHeight) {
     shield.style.display = "none";
@@ -717,8 +739,17 @@ function removeShield(img) {
   shieldedImages.delete(img);
 }
 
+let shieldSyncScheduled = false;
+
 function syncShields() {
-  for (const img of [...shieldedImages]) positionShield(img);
+  // scroll listens in capture phase (to catch nested scroll containers too) and can fire
+  // many times per frame during a wheel/trackpad gesture; coalesce to one layout pass.
+  if (shieldSyncScheduled) return;
+  shieldSyncScheduled = true;
+  requestAnimationFrame(() => {
+    shieldSyncScheduled = false;
+    for (const img of [...shieldedImages]) positionShield(img);
+  });
 }
 
 requestState();

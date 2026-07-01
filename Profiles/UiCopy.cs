@@ -222,7 +222,7 @@ internal static class UiCopy
         string.Format(SystemToolsLockActiveTemplate, tools);
 
     public const string SystemToolsLockTitle = "System tools";
-    public const string SystemToolsLockInactive = "No system tools locked";
+    public const string SystemToolsLockInactive = "System tools are allowed";
     private const string SystemToolsLockActiveTemplate = "Locked: {0}";
     public const string SystemToolRegistry = "Registry Editor";
     public const string SystemToolCommandPrompt = "Command Prompt";
@@ -272,11 +272,71 @@ internal static class UiCopy
     public const string ExitPinWrong = "Incorrect PIN.";
     public const string ExitPinLockout = "Too many attempts. Try again in {0}s.";
 
-    public const string SubNamePromptTitle = "Welcome to Guardi!";
-    public const string SubNamePromptBody =
-        "What should Guardi call you? This name appears on your dashboard and in your protected browser.";
+    public const string SubNamePromptTitle = "Let's be friends!";
+    public const string SubNamePromptBody = "Tell me your name so I know how to call you!";
     public const string SubNamePromptConfirm = "Let's go!";
-    public const string SubNamePromptInvalid = "Please enter a name (at least one letter).";
+    public const string SubNamePromptInvalid = "Oopsie, I need at least one letter to work with!";
+
+    // First-run setup wizard — step 1: local vs online.
+    public const string WelcomeModeTitle = "Hiya, I'm Guardi!";
+    public const string WelcomeModeSubtitle = "So... where do you want me to keep watch from?";
+    public const string WelcomeModeLocalTitle = "Right here with you!";
+    public const string WelcomeModeLocalBody = "I'll live right on this computer — no account, no fuss!";
+    public const string WelcomeModeLocalButton = "Set up locally";
+    public const string WelcomeModeOnlineTitle = "From a web dashboard";
+    public const string WelcomeModeOnlineBody = "Coming soon — your Dom will be able to manage me from anywhere!";
+    public const string WelcomeModeOnlineBadge = "Coming soon";
+
+    // First-run setup wizard — step 2: name (reuses SubNamePrompt copy above).
+
+    // First-run setup wizard — step 3: PIN (local only).
+    public const string WelcomePinTitle = "Let's keep a secret code";
+    public const string WelcomePinBody =
+        "Pick a secret PIN so only your Dom can change my settings. Don't worry, you (or they) " +
+        "can change it again later!";
+    public const string WelcomePinConfirm = "Lock it in!";
+    public const string WelcomePinSkip = "Skip for now";
+    public const string WelcomePinInvalid = "Needs to be 6 to 8 numbers, sweetie!";
+
+    // Post-onboarding welcome tour — mandatory, multi-page, each mode page themed like that mode.
+    public const string TourWhyTitle = "So, why am I here?";
+    public const string TourWhyBody =
+        "I'm here to help keep things safe and balanced while you're online! I can blur risky " +
+        "pictures before they even load, keep an eye on your screen and game time, and gently " +
+        "steer you away from sites your Dom would rather you skip. I'm your cozy helper, not " +
+        "the bad guy — I just want to help you build good habits!";
+    public const string TourNext = "Tell me more!";
+    public const string TourBack = "Back";
+
+    public const string TourTrustedSubTitle = "Meet Schooly!";
+    public const string TourTrustedSubKicker = "Trusted Sub";
+    public const string TourTrustedSubBody =
+        "Schooly comes out when your Dom trusts you the most! It's my chillest look — I mostly " +
+        "just watch and give friendly nudges instead of hard blocks. Keep that trust up and " +
+        "Schooly sticks around.";
+
+    public const string TourSubTitle = "Meet Guardy!";
+    public const string TourSubKicker = "Sub";
+    public const string TourSubBody =
+        "Guardy is my everyday, standard look. I'll actually block the risky stuff and keep a " +
+        "closer eye on your screen time here — still cozy, just a bit more hands-on.";
+
+    public const string TourRestrictedSubTitle = "Meet Locky!";
+    public const string TourRestrictedSubKicker = "Restricted Sub";
+    public const string TourRestrictedSubBody =
+        "Locky shows up when extra focus or safety is needed. It's my strictest look — tighter " +
+        "limits and locked-down tools. Don't worry, it's not forever — good habits can earn an " +
+        "easier mode back.";
+
+    public const string TourTrustTitle = "I keep a trust meter for you!";
+    public const string TourTrustBody =
+        "It starts full! If you push limits — like ignoring time limits or trying to dodge me — " +
+        "it dips a little. Let it run too low and I'll switch to a stricter mode on my own. But " +
+        "here's the good part: behaving well fills it back up, and enough good behavior can even " +
+        "earn your way back to an easier mode!";
+    public const string TourTrustFullLabel = "Full trust";
+    public const string TourTrustLowLabel = "Low trust";
+    public const string TourFinish = "Got it, let's go!";
 
     public const string RestrictionActive = "ON";
     public const string RestrictionInactive = "Off";
@@ -348,10 +408,80 @@ internal static class UiCopy
     public const string InfractionGamingDetail = "Reached the daily game-time limit and kept going.";
     public const string InfractionYoutubeDetail = "Reached the daily YouTube limit and kept going.";
 
+    // Soft enforcement (Trusted Sub): nothing is closed/locked — Guardi just reminds and
+    // lets trust slip. (Phase C will give these per-mode / per-zone variety.)
+    public const string ScreenTimeSoftReminderLog =
+        "Screen time's up — Guardi's trusting you to wrap up. Trust dips a little if you keep going.";
+    public const string SoftLimitReminderFormat =
+        "{0} reached its limit — Guardi's leaving it open and trusting you. Trust slips if you keep going.";
+
+    // Fullscreen soft warning (Trusted Sub only) when the global screen-time limit is hit —
+    // not a lock, but the Sub has to actively click through it rather than it being silent.
+    public const string SoftLimitWarningTitle = "Time's up for today!";
+    public const string SoftLimitWarningBody =
+        "You've reached your screen time limit for today. Schooly trusts you to wrap things up " +
+        "now — nothing's locked since you're in Trusted Sub mode, but pushing through still costs " +
+        "you a little trust.";
+    public const string SoftLimitWarningFooter =
+        "Wrapping up now keeps your trust meter happy and your Dom proud.";
+    public const string SoftLimitWarningContinueButton = "Continue anyway (not recommended)";
+
+    // Gaming soft limit overlay (Trusted Sub — game keeps running, user must ack to continue)
+    public const string GamingSoftLimitTitle = "Play time's up for today!";
+    public static string GamingSoftLimitMessage(string limitLabel) =>
+        $"You've used all your game time ({limitLabel}). Guardi's leaving it open since you're in Trusted Sub mode — but keep playing and your trust slips a little.";
+    public const string GamingSoftLimitHint = "Stopping now keeps your trust meter happy.";
+    public const string GamingSoftLimitStopButton = "Stop playing";
+    public const string GamingSoftLimitContinueButton = "Keep playing anyway";
+
+    // Periodic nag toasts when a soft limit is actively being ignored (every 3 min).
+    public static string NagTitle => MascotName + " noticed…";
+    private static readonly string[] LimitIgnoredNags =
+    [
+        "You were supposed to stop. Every extra minute costs you a little more trust.",
+        "Still going? {0} has been off-limits for a while now. Guardi's keeping count.",
+        "Your Dom set that limit for a reason. Each minute you ignore it chips away at your trust.",
+        "Guardi sees you ignoring the {0} limit. This will show on your trust report.",
+        "Still at it? That limit wasn't a suggestion. Trust dropping…",
+        "The longer you ignore this, the harder it'll be to earn trust back.",
+        "Guardi's watching. Every minute past the limit is noted.",
+    ];
+    private static int _nagIndex;
+    public static string NextLimitIgnoredNag(string zone) =>
+        string.Format(
+            LimitIgnoredNags[Math.Abs(System.Threading.Interlocked.Increment(ref _nagIndex)) % LimitIgnoredNags.Length],
+            zone);
+
+    public const string SoftLimitWarningYoutubeTitle = "YouTube time's up for today!";
+    public const string SoftLimitWarningYoutubeBody =
+        "You've reached your daily YouTube limit. Schooly trusts you to close it up now — " +
+        "nothing's locked since you're in Trusted Sub mode, but pushing through still costs " +
+        "you a little trust.";
+
+    public const string SoftLimitWarningBedtimeTitle = "It's past your bedtime!";
+    public const string SoftLimitWarningBedtimeBody =
+        "Your bedtime has arrived. Guardi trusts you to save your work and get to bed — " +
+        "nothing's locked since you're in Trusted Sub mode, but every 10 minutes you stay up " +
+        "costs you a little more trust.";
+
     public const string DisciplineEscalatedFormat = "Base: {0} → now {1}";
     public const string DisciplineProgressFormat = "{0}/{1} toward {2}";
     public const string DisciplineMaxLevelText = "At maximum supervision level";
-    public const string DisciplineDisabledHint = "Discipline tracking is off.";
+    public const string DisciplineDisabledHint = "Trust tracking is off.";
+
+    // Trust gauge — warm, in Guardi's voice. {0} = current trust (0-100).
+    public const string TrustConfidenceFormat = "Trust {0}/100 — Guardi's proud of you. 💙";
+    public const string TrustCautionFormat = "Trust {0}/100 — easy now, let's keep it cosy.";
+    public const string TrustHardeningFormat = "Trust {0}/100 — getting shaky. One more slip turns things stricter.";
+    public const string TrustEscalationFormat = "Trust {0}/100 — Guardi had to tighten up.";
+
+    public static string TrustZoneText(int trust, EduGuardAgent.Models.TrustZone zone) => zone switch
+    {
+        EduGuardAgent.Models.TrustZone.Confidence => string.Format(TrustConfidenceFormat, trust),
+        EduGuardAgent.Models.TrustZone.Caution => string.Format(TrustCautionFormat, trust),
+        EduGuardAgent.Models.TrustZone.Hardening => string.Format(TrustHardeningFormat, trust),
+        _ => string.Format(TrustEscalationFormat, trust),
+    };
 
     public static string UrlBlockingStatus(int count, bool serverRunning, string? hostsError, bool orphan) =>
         hostsError is not null

@@ -13,6 +13,13 @@ using EduGuardAgent.Views;
 
 namespace EduGuardAgent.ViewModels;
 
+internal enum SoftLimitKind
+{
+    ScreenTime,
+    Youtube,
+    Bedtime,
+}
+
 [SupportedOSPlatform("windows")]
 internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNotifier, IDisposable
 {
@@ -20,6 +27,7 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
     private readonly SessionState _sessionState;
     private readonly AgentModeService _agentMode;
     private readonly UrlBlockingService _urlBlocking;
+    private readonly WebContentFilterService _webContentFilter;
     private readonly SafeSearchService _safeSearch;
     private readonly YouTubeRestrictedModeService _youtubeRestricted;
     private readonly ImageBlurExtensionService _imageShield;
@@ -54,10 +62,22 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
     private bool _isScreenTimeLocked;
     private bool _isDomLocked;
     private bool _isBedtimeLocked;
+    private bool _isSoftLimitWarningVisible;
     private bool _screenTimeLockBypassed;
+    private bool _softLimitWarningBypassed;
+    private bool _youtubeSoftLimitWarningBypassed;
+    private bool _gamingSoftLimitWarningBypassed;
+    private bool _gamingSoftLimitOverlayOpen;
+    private int _gamingNagTickCount;
+    private int _youtubeNagTickCount;
+    private const int NagEveryTicks = 3; // nag every 3 minutes
+    private bool _bedtimeSoftWarningBypassed;
+    private SoftLimitKind _softLimitWarningKind;
+    private double? _lastScreenTimeLimitMinutesForBypass;
     private bool _bedtimeLockBypassed;
     private string _bedtimeUnlockCountdown = "--:--";
     private DispatcherTimer? _bedtimeCountdownTimer;
+    private DispatcherTimer? _bedtimeOverrunTimer;
     private string _punishmentDeescalationCountdown = "--:--";
     private bool _showPunishmentCountdown;
     private DispatcherTimer? _punishmentCountdownTimer;
@@ -66,7 +86,7 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
     private int _restrictionsRefreshSerial;
     private CancellationTokenSource? _startupCts;
     private string _statusText = UiCopy.StatusOffline;
-    private string _focusedWindow = "â€”";
+    private string _focusedWindow = "—";
     private int _runningAppsCount;
     private string _lastDomMessage = UiCopy.DefaultDomMessage;
     private string _enrollmentCode = string.Empty;
@@ -86,6 +106,7 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
     private string _localActiveModeSlug = AgentModeSlugs.Sub;
     private string _localStudyDaysText = "mon,tue,wed,thu,fri";
     private string _localExitPin = string.Empty;
+    private string _localSubDisplayName = string.Empty;
     private int _localScreenshotInterval = Config.ScreenshotIntervalMinutes;
     private int _localPunishmentThresholdTrustedToSub = 3;
     private int _localPunishmentThresholdSubToRestricted = 3;
@@ -93,6 +114,13 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
     private int _localPunishmentEscalationMinutes;
     private PunishmentExtensionCatalog _localPunishmentExtensions = PunishmentExtensionCatalog.CreateDefaults();
     private bool _localPunishmentEnabled = true;
+    private int _localTrustRegenPerHour = 5;
+    private int _localTrustWeightVpn = 25;
+    private int _localTrustWeightBypass = 20;
+    private int _localTrustWeightBlockedApp = 15;
+    private int _localTrustWeightBlockedSearch = 15;
+    private int _localTrustWeightStudy = 10;
+    private int _localTrustWeightLimit = 10;
     private bool _localGamingShowOverlay = true;
     private bool _localYoutubeShowOverlay = true;
     private bool _localBlockTaskManager;
@@ -116,6 +144,7 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
         _sessionState = new SessionState();
         _agentMode = new AgentModeService(_sessionState);
         _urlBlocking = new UrlBlockingService();
+        _webContentFilter = new WebContentFilterService(_urlBlocking);
         _safeSearch = new SafeSearchService();
         _youtubeRestricted = new YouTubeRestrictedModeService();
         _imageShield = new ImageBlurExtensionService();
@@ -147,15 +176,16 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
         _studyDistractionGuard = new StudyDistractionGuard(_studyTime, _urlBlocking, _dispatcher);
         _studyDistractionGuard.DistractingAppBlocked += OnStudyDistractionAppBlocked;
         _wasStudyActiveForToast = _studyTime.IsActiveNow;
-        _gaming = new GamingTimeTracker(_dispatcher, _studyTime);
-        _appTimeLimits = new AppTimeLimitTracker(_dispatcher);
-        _youtube = new YoutubeTimeTracker(_dispatcher, _studyTime);
+        _gaming = new GamingTimeTracker(_dispatcher, _studyTime, () => IsHardDisciplineEnforcement);
+        _appTimeLimits = new AppTimeLimitTracker(_dispatcher, () => IsHardDisciplineEnforcement);
+        _youtube = new YoutubeTimeTracker(_dispatcher, _studyTime, () => IsHardDisciplineEnforcement);
         _punishment = new PunishmentService(_dispatcher, () => _agentMode.BaseStrictnessIndex);
         _extensionInfractionWatcher = new ExtensionInfractionWatcher(OnExtensionBlockedSearch);
         _extensionInfractionWatcher.Start();
         _extensionInfractionHttp = new ExtensionInfractionHttpReporter(
             OnExtensionBlockedSearch,
-            getShieldState: BuildAgentShieldState);
+            getShieldState: BuildAgentShieldState,
+            onYoutubeSoftAck: OnYoutubeSoftAck);
         _extensionInfractionHttp.Start();
         NativeMessagingHostRegistry.Register();
         _localMode = new LocalModeService();
@@ -187,6 +217,7 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
         RequestKioskExitCommand = new RelayCommand(RequestKioskExit);
         NavigateToKioskAppsCommand = new RelayCommand(NavigateToKioskApps, () => IsKioskActive);
         DismissLockOverlayCommand = new RelayCommand(DismissLockOverlay, () => IsLockOverlayVisible);
+        ContinueSoftLimitAnywayCommand = new RelayCommand(ContinueSoftLimitAnyway, () => true);
         OpenRestrictionDetailCommand = new RelayCommand<string>(OpenRestrictionDetail, _ => true);
         NavigateBackCommand = new RelayCommand(NavigateBack, () => !IsHomePage);
         ToggleLocalModeCommand = new RelayCommand(async () => await ToggleLocalModeAsync(), () => !IsLocalSyncing);
@@ -237,6 +268,16 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
 
         _agentMode.SetPunishmentFloor(_punishment.FloorLevelIndex);
         SyncPunishmentCountdownTimer();
+
+        foreach (var r in _punishment.RecentInfractions)
+            Infractions.Add(new InfractionItem
+            {
+                Label = InfractionKindLabel(r.Kind),
+                Detail = r.Detail,
+                Time = r.At.ToLocalTime().ToString("HH:mm"),
+                TrustPointsLost = r.TrustPointsLost,
+            });
+
         RefreshDisciplineStanding();
 
         _dispatcher.Invoke(() =>
@@ -252,6 +293,8 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
     public event PropertyChangedEventHandler? PropertyChanged;
     public event Action? ScreenTimeLocked;
     public event Action? ScreenTimeLockDismissed;
+    public event Action? SoftLimitWarningRequested;
+    public event Action? SoftLimitWarningDismissed;
     public event Action? LockOverlayChanged;
     public event Action<string>? DomMessagePopupRequested;
     public event Action<string, string>? AppBlockedPopupRequested;
@@ -286,20 +329,23 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
         ? LocalHeaderTitle
         : IsKioskAppsPage
             ? KioskCopy.AppsTitle
-            : IsHomePage && HasSubDisplayName
-                ? $"Hi, {PersonalizedName}!"
-                : LevelTitle;
+            : LevelTitle;
 
     public string HeaderCenterSubtitle => IsLocalAreaPage
         ? LocalHeaderSubtitle
         : IsKioskAppsPage
             ? KioskCopy.AppsPageHeaderSubtitle
-            : IsHomePage && HasSubDisplayName
-                ? MascotGreeting
-                : LevelSubtitle;
+            : LevelSubtitle;
+
+    // The home page's hero card greets the Sub by name; the slim top bar (above) shows the mode name instead so the two don't repeat each other.
+    public string HomeGreetingTitle => HasSubDisplayName ? $"Hi, {PersonalizedName}!" : LevelTitle;
+
+    public string HomeGreetingSubtitle => HasSubDisplayName ? MascotGreeting : LevelSubtitle;
     public bool ShowMascot => _agentMode.Ui.ShowMascot;
-    public bool IsMatureUi => !_agentMode.Ui.ShowMascot;
+    public bool IsMatureUi => !IsSubMode;
     public bool IsSubMode => string.Equals(_agentMode.Slug, AgentModeSlugs.Sub, StringComparison.Ordinal);
+    public bool IsTrustedSubMode => string.Equals(_agentMode.Slug, AgentModeSlugs.TrustedSub, StringComparison.Ordinal);
+    public bool IsRestrictedSubMode => string.Equals(_agentMode.Slug, AgentModeSlugs.RestrictedSub, StringComparison.Ordinal);
     public string HeaderIconGlyph => _agentMode.Ui.HeaderIconGlyph;
     public string StandingLabel => UiCopy.StandingLabel(SubDisplayName);
     public string MascotGreeting => UiCopy.MascotGreeting(SubDisplayName);
@@ -343,8 +389,8 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
 
     public string WidgetToolTip =>
         ShowWidgetScreenTime
-            ? $"Open Guardi â€” {PersonalizedName} Â· {SupervisionStatusLabel} Â· {ScreenTimeRemainingText}"
-            : $"Open Guardi â€” {PersonalizedName} Â· {SupervisionStatusLabel}";
+            ? $"Open Guardi — {PersonalizedName} · {SupervisionStatusLabel} · {ScreenTimeRemainingText}"
+            : $"Open Guardi — {PersonalizedName} · {SupervisionStatusLabel}";
     public string RunningAppsLabel => UiCopy.ActivityAppsFormat(RunningAppsCount);
 
     public int InfractionCount => _punishment.InfractionCount;
@@ -355,25 +401,32 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
     private int DisciplineTargetStrictnessIndex =>
         Math.Max(_agentMode.BaseStrictnessIndex, _punishment.FloorLevelIndex);
 
+    /// <summary>
+    /// True once the effective mode is Sub or stricter. In Trusted Sub (index 0) time-limit
+    /// and distraction enforcement is "soft": a reached limit drops trust + reminds instead
+    /// of closing apps or locking the screen. Safety filtering stays hard in every mode.
+    /// </summary>
+    private bool IsHardDisciplineEnforcement => DisciplineTargetStrictnessIndex >= 1;
+
     public string DisciplineProgressText => BuildDisciplineProgressText();
 
-    public double DisciplineProgressValue
-    {
-        get
-        {
-            var threshold = _punishment.Threshold;
-            return threshold <= 0
-                ? 0
-                : Math.Min(100, (double)InfractionCount / threshold * 100);
-        }
-    }
+    /// <summary>Current trust gauge, 0-100 (full = trusted). Drives the discipline progress bar.</summary>
+    public double DisciplineProgressValue => _punishment.TrustValue;
+
+    public int TrustValue => _punishment.TrustValue;
 
     public bool IsDisciplineEscalated => _punishment.FloorLevelIndex > 0;
 
     public string DisciplineModeStatus => BuildDisciplineModeStatus();
 
+    // The status box only adds information beyond the progress text above when escalated or mid-countdown;
+    // otherwise it would just repeat the same "X/Y toward Z" line a second time.
+    public bool ShowDisciplineStatusBox => IsDisciplineEscalated || ShowPunishmentCountdown;
+
     public bool ShowInfractionsGood =>
         IsDisciplineEnabled && InfractionCount == 0 && !ShowPunishmentCountdown;
+
+    public bool HasRecentInfractions => Infractions.Count > 0;
 
     public bool ShowPunishmentCountdown => _showPunishmentCountdown;
     public string PunishmentDeescalationLabel => UiCopy.PunishmentDeescalationLabel;
@@ -536,6 +589,31 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
 
     public bool IsLockOverlayVisible => IsScreenTimeLocked || IsDomLocked || IsBedtimeLocked;
 
+    // Trusted Sub soft enforcement: warns about a time limit but the Sub can click through it
+    // themselves — unlike the lock overlay above, no Dom PIN is required.
+    public bool IsSoftLimitWarningVisible
+    {
+        get => _isSoftLimitWarningVisible;
+        private set => SetField(ref _isSoftLimitWarningVisible, value);
+    }
+
+    public string SoftLimitWarningTitle => _softLimitWarningKind switch
+    {
+        SoftLimitKind.Youtube => UiCopy.SoftLimitWarningYoutubeTitle,
+        SoftLimitKind.Bedtime => UiCopy.SoftLimitWarningBedtimeTitle,
+        _ => UiCopy.SoftLimitWarningTitle,
+    };
+
+    public string SoftLimitWarningBody => _softLimitWarningKind switch
+    {
+        SoftLimitKind.Youtube => UiCopy.SoftLimitWarningYoutubeBody,
+        SoftLimitKind.Bedtime => UiCopy.SoftLimitWarningBedtimeBody,
+        _ => UiCopy.SoftLimitWarningBody,
+    };
+
+    public string SoftLimitWarningFooter => UiCopy.SoftLimitWarningFooter;
+    public string SoftLimitWarningContinueLabel => UiCopy.SoftLimitWarningContinueButton;
+
     public bool ShowLockScreenTimeStats => IsScreenTimeLocked && !IsDomLocked && !IsBedtimeLocked;
 
     public bool ShowBedtimeCountdown => IsBedtimeLocked && !IsDomLocked;
@@ -551,6 +629,12 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
     public bool ShowLockMoonIcon => IsBedtimeLocked && !IsDomLocked;
 
     public bool ShowLockMascot => ShowMascot && !ShowLockMoonIcon;
+    public bool ShowLockMascotGuardi => ShowLockMascot && IsSubMode;
+    public bool ShowLockMascotTrustedSub => ShowLockMascot && IsTrustedSubMode;
+    public bool ShowLockMascotRestrictedSub => ShowLockMascot && IsRestrictedSubMode;
+    public bool ShowMascotGuardi => ShowMascot && IsSubMode;
+    public bool ShowMascotTrustedSub => ShowMascot && IsTrustedSubMode;
+    public bool ShowMascotRestrictedSub => ShowMascot && IsRestrictedSubMode;
 
     public bool ShowLockDismissButton => IsLockOverlayVisible;
 
@@ -670,6 +754,7 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
     public bool IsKioskActive => _kioskPresentationActive;
     public bool ExitPinRequired => _exitPin.IsRequired;
     public RelayCommand DismissLockOverlayCommand { get; }
+    public RelayCommand ContinueSoftLimitAnywayCommand { get; }
     public bool IsLocalMode => _localMode.IsEnabled;
     public bool IsLocalSyncing => _isLocalSyncing;
     public bool ShowEnrollmentOverlay => !IsEnrolled && !IsLocalMode;
@@ -716,6 +801,8 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
                 OnPropertyChanged(nameof(IsSettingsPage));
                 OnPropertyChanged(nameof(HeaderCenterTitle));
                 OnPropertyChanged(nameof(HeaderCenterSubtitle));
+                OnPropertyChanged(nameof(HomeGreetingTitle));
+                OnPropertyChanged(nameof(HomeGreetingSubtitle));
                 OnPropertyChanged(nameof(IsBlockedListDetail));
                 OnPropertyChanged(nameof(IsPlayTimeDetail));
                 OnPropertyChanged(nameof(IsYoutubeTimeDetail));
@@ -793,6 +880,7 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
 
         _bedtime.Dispose();
         StopBedtimeCountdownTimer();
+        StopBedtimeOverrunTimer();
         StopPunishmentCountdownTimer();
         StopWidgetPromptTimer();
         _safeSearch.Dispose();
@@ -830,17 +918,50 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
         NotifySupervisionPresentationChanged();
     }
 
-    public bool EnsureSubDisplayName(Window owner)
+    /// <summary>
+    /// First-run gate: local-vs-online choice, name, and (local only) exit PIN — all in one
+    /// wizard, always Trusted Sub themed. Local mode is enabled directly here rather than via
+    /// <see cref="ToggleLocalModeCommand"/>, since that command's PIN-authorization gate would
+    /// immediately re-prompt for the PIN the Sub just finished setting two steps earlier.
+    /// </summary>
+    public bool EnsureOnboarded(Window owner)
     {
         if (_subProfile.HasDisplayName)
             return true;
 
-        var dialog = new SubNamePromptWindow(_subProfile) { Owner = owner };
+        var dialog = new WelcomeWizardWindow(_subProfile, _exitPin) { Owner = owner };
         if (dialog.ShowDialog() != true)
             return false;
 
+        if (dialog.ChoseLocalSetup && !IsLocalMode)
+        {
+            _localSettings.SeedFromRuntimeIfEmpty();
+            _localMode.Enable();
+            AddLog(LocalModeCopy.EnabledLog);
+        }
+
         RefreshSubPersonalization();
         return true;
+    }
+
+    /// <summary>
+    /// Mandatory, one-time tour shown right after onboarding completes. No-ops on every
+    /// later launch once seen — gated by its own persisted flag, independent of
+    /// <see cref="EnsureOnboarded"/>, so it's safe to call unconditionally after it.
+    /// </summary>
+    public void EnsureWelcomeTourShown(Window owner)
+    {
+        if (_agentPreferences.WelcomeTourSeen)
+            return;
+
+        new WelcomeTourWindow { Owner = owner }.ShowDialog();
+
+        // The tour re-themes the window per page to preview each mode; restore the actual
+        // effective mode's theme now that it's closed.
+        ThemeService.Apply(_agentMode.Theme, _agentMode.Ui);
+
+        _agentPreferences.WelcomeTourSeen = true;
+        _agentPreferencesStore.Save(_agentPreferences);
     }
 
     private void OnSubProfileChanged() => PostOnUi(RefreshSubPersonalization);
@@ -852,6 +973,8 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
         OnPropertyChanged(nameof(PersonalizedName));
         OnPropertyChanged(nameof(HeaderCenterTitle));
         OnPropertyChanged(nameof(HeaderCenterSubtitle));
+        OnPropertyChanged(nameof(HomeGreetingTitle));
+        OnPropertyChanged(nameof(HomeGreetingSubtitle));
         OnPropertyChanged(nameof(StandingLabel));
         OnPropertyChanged(nameof(MascotGreeting));
         OnPropertyChanged(nameof(LockOverlayHeadline));
@@ -955,6 +1078,7 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
 
         ct.ThrowIfCancellationRequested();
         _urlBlocking.ReconcileFromDisk();
+        _webContentFilter.LoadAndApply();
 
         if (_host.IsEnrolled)
         {
@@ -1044,11 +1168,25 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
         var managed = new Dictionary<string, object>(state.Managed, StringComparer.Ordinal)
         {
             ["youtubeBlocked"] = _youtube.ShouldBlockYoutubeAccess,
+            ["youtubeSoftLimit"] = _youtube.ShouldSoftWarnYoutubeAccess && !_youtubeSoftLimitWarningBypassed,
         };
 
         var reason = _youtube.YoutubeBlockReason;
         if (!string.IsNullOrEmpty(reason))
             managed["youtubeBlockReason"] = reason;
+
+        // Web-content category keywords for the extension's hostname heuristic (catches
+        // sites not in the curated hosts-file list). Curated domains are already blocked
+        // at DNS level, so only the keyword tokens need to travel to the browser.
+        var categoryKeywords = _webContentFilter.EnabledKeywords;
+        if (categoryKeywords.Count > 0)
+            managed["blockedCategoryKeywords"] = categoryKeywords;
+
+        // Weighted page-text vocabularies for the extension's on-device content scoring
+        // (catches exotic sites that neither the curated lists nor the DNS filter know).
+        var categoryContent = _webContentFilter.EnabledContentTerms;
+        if (categoryContent.Count > 0)
+            managed["blockedCategoryContent"] = categoryContent;
 
         return state with { AgentRunning = true, Managed = managed };
     }
@@ -1068,6 +1206,7 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
         _safeSearch.Release();
         _youtubeRestricted.Release();
         _urlBlocking.ReleaseBlocking();
+        _webContentFilter.ReleaseEnforcement();
         _vpnBlocking.Disable(_sessionState, _urlBlocking, applyUrlChanges: false);
         WaitForExtensionShutdownSignal();
         EmergencyReleaseKiosk();
@@ -1083,7 +1222,7 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
             var offSettings = _imageShieldPolicy.BuildTuningSettings(_agentMode.Slug) with { ShieldActive = false };
             _imageShield.SetRuntimeActive(false, offSettings);
             _imageShieldPolicy.SetPoliciesActive(false);
-            AuditLog.Write("Image shield shutdown â€” runtime inactive, HTTP bridge stays up briefly for extension poll.");
+            AuditLog.Write("Image shield shutdown — runtime inactive, HTTP bridge stays up briefly for extension poll.");
         }
         catch (Exception ex)
         {
@@ -1177,7 +1316,7 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
     }
 
     public void CommandExecuted(string type, bool success) =>
-        PostOnUi(() => AddLog($"{UiCopy.MascotName} ran safety command {type} â†’ {(success ? "OK" : "failed")}"));
+        PostOnUi(() => AddLog($"{UiCopy.MascotName} ran safety command {type} → {(success ? "OK" : "failed")}"));
 
     public void DomMessageReceived(string text) =>
         PostOnUi(() =>
@@ -1313,9 +1452,15 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
             if (enrolled)
             {
                 EnsureAutoStartDefaultWhenSupervised();
+                Task.Run(Security.SecurityActivation.EnsureActive);
                 IsOnline = false;
                 StatusText = IsLocalMode ? LocalModeCopy.StatusLabel : UiCopy.StatusStarting;
                 _screenTimeLockBypassed = false;
+                _softLimitWarningBypassed = false;
+                _youtubeSoftLimitWarningBypassed = false;
+                _gamingSoftLimitWarningBypassed = false;
+                _gamingNagTickCount = 0;
+                _youtubeNagTickCount = 0;
                 _bedtimeLockBypassed = false;
                 _kioskBypassed = false;
                 _screenTime.Start();
@@ -1374,7 +1519,12 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
             IsDomLocked = false;
             IsBedtimeLocked = false;
             _screenTimeLockBypassed = false;
+            _softLimitWarningBypassed = false;
+            _youtubeSoftLimitWarningBypassed = false;
+            _gamingSoftLimitWarningBypassed = false;
             _bedtimeLockBypassed = false;
+            _bedtimeSoftWarningBypassed = false;
+            StopBedtimeOverrunTimer();
             StatusText = UiCopy.StatusSessionEnded;
             EnrollmentDetail = "Your Dom unlinked this computer. Ask for a new code to feel safe again.";
             _screenTime.Stop();
@@ -1405,6 +1555,18 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
             "screen_time",
             UiCopy.InfractionScreenTimeDetail);
 
+        // Trusted Sub is soft: no lock screen, but a fullscreen warning still calls it out —
+        // the Sub can click through it themselves (discouraged), unlike the hard lock below.
+        if (!IsHardDisciplineEnforcement)
+        {
+            PostOnUi(() =>
+            {
+                AddLog(UiCopy.ScreenTimeSoftReminderLog);
+                ShowSoftLimitWarning(SoftLimitKind.ScreenTime);
+            });
+            return;
+        }
+
         PostOnUi(() =>
         {
             IsScreenTimeLocked = true;
@@ -1414,6 +1576,18 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
         });
     }
 
+    private void ShowSoftLimitWarning(SoftLimitKind kind)
+    {
+        if (IsSoftLimitWarningVisible)
+            return;
+
+        _softLimitWarningKind = kind;
+        OnPropertyChanged(nameof(SoftLimitWarningTitle));
+        OnPropertyChanged(nameof(SoftLimitWarningBody));
+        IsSoftLimitWarningVisible = true;
+        SoftLimitWarningRequested?.Invoke();
+    }
+
     public void DomLockRequested()
     {
         PostOnUi(() =>
@@ -1421,7 +1595,7 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
             IsDomLocked = true;
             DismissLockOverlayCommand.RaiseCanExecuteChanged();
             NotifyLockOverlayChanged();
-            AddLog($"{UiCopy.MascotName} locked the screen â€” your Dom said time-out.");
+            AddLog($"{UiCopy.MascotName} locked the screen — your Dom said time-out.");
         });
     }
 
@@ -1435,7 +1609,7 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
             IsDomLocked = false;
             DismissLockOverlayCommand.RaiseCanExecuteChanged();
             NotifyLockOverlayChanged();
-            AddLog($"{UiCopy.MascotName} unlocked the screen â€” your Dom let you back in.");
+            AddLog($"{UiCopy.MascotName} unlocked the screen — your Dom let you back in.");
         });
     }
 
@@ -1469,6 +1643,34 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
         NotifyLockOverlayChanged();
     }
 
+    private void ContinueSoftLimitAnyway()
+    {
+        if (!IsSoftLimitWarningVisible)
+            return;
+
+        // Stays dismissed for the rest of today's session — otherwise the next elapsed-time
+        // tick would just re-trigger the same warning immediately.
+        if (_softLimitWarningKind == SoftLimitKind.Youtube)
+        {
+            _youtubeSoftLimitWarningBypassed = true;
+            AddLog("Kept watching YouTube past the daily limit — Guardi's trust dipped a little.");
+        }
+        else if (_softLimitWarningKind == SoftLimitKind.Bedtime)
+        {
+            _bedtimeSoftWarningBypassed = true;
+            StartBedtimeOverrunTimer();
+            AddLog("Stayed up past bedtime — trust will keep draining while the computer stays on.");
+        }
+        else
+        {
+            _softLimitWarningBypassed = true;
+            AddLog("Kept going past the screen time limit — Guardi's trust dipped a little.");
+        }
+
+        IsSoftLimitWarningVisible = false;
+        SoftLimitWarningDismissed?.Invoke();
+    }
+
     public event Action<ExtensionGuardState?>? ExtensionGuardStateChanged;
     public event Action<string, string>? FirefoxRestartToastRequested;
     public event Action<string, string, int>? BrowserRestartCountdownRequested;
@@ -1491,17 +1693,17 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
         {
             if (string.Equals(displayName, "Mozilla Firefox", StringComparison.OrdinalIgnoreCase))
             {
-                AddLog($"{UiCopy.MascotName} closed Mozilla Firefox â€” use Firefox Developer Edition.");
+                AddLog($"{UiCopy.MascotName} closed Mozilla Firefox — use Firefox Developer Edition.");
                 AppBlockedPopupRequested?.Invoke(
                     ExtensionGuardCopy.FirefoxReleaseBlockedTitle,
                     ExtensionGuardCopy.FirefoxReleaseBlockedMessage);
                 return;
             }
 
-            AddLog($"{UiCopy.MascotName} closed {displayName} â€” only Guardi-protected browsers are allowed.");
+            AddLog($"{UiCopy.MascotName} closed {displayName} — only Guardi-protected browsers are allowed.");
             AppBlockedPopupRequested?.Invoke(
                 $"{displayName} is not allowed",
-                $"{UiCopy.MascotName} can't put his shield on {displayName}, so it stays closed. Use a browser Guardi protects, okay? ðŸ’™");
+                $"{UiCopy.MascotName} can't put his shield on {displayName}, so it stays closed. Use a browser Guardi protects, okay? \U0001F499");
         });
 
     private void NotifyLockOverlayChanged()
@@ -1513,6 +1715,9 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
         OnPropertyChanged(nameof(ShowLockDismissButton));
         OnPropertyChanged(nameof(ShowLockMoonIcon));
         OnPropertyChanged(nameof(ShowLockMascot));
+        OnPropertyChanged(nameof(ShowLockMascotGuardi));
+        OnPropertyChanged(nameof(ShowLockMascotTrustedSub));
+        OnPropertyChanged(nameof(ShowLockMascotRestrictedSub));
         OnPropertyChanged(nameof(LockOverlayHeadline));
         OnPropertyChanged(nameof(LockOverlayBody));
         OnPropertyChanged(nameof(LockOverlayFooter));
@@ -1541,6 +1746,18 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
             if (!IsEnrolled || _bedtimeLockBypassed || IsBedtimeLocked)
                 return;
 
+            // Trusted Sub: soft warning instead of hard lock.
+            if (!IsHardDisciplineEnforcement)
+            {
+                if (_bedtimeSoftWarningBypassed)
+                    return;
+
+                _punishment.RegisterInfraction(InfractionKind.LimitIgnored, "bedtime", "Stayed up past bedtime");
+                AddLog($"It's past bedtime — {UiCopy.MascotName} is gently reminding you to rest.");
+                ShowSoftLimitWarning(SoftLimitKind.Bedtime);
+                return;
+            }
+
             IsBedtimeLocked = true;
             StartBedtimeCountdownTimer();
             DismissLockOverlayCommand.RaiseCanExecuteChanged();
@@ -1555,6 +1772,8 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
         PostOnUi(() =>
         {
             _bedtimeLockBypassed = false;
+            _bedtimeSoftWarningBypassed = false;
+            StopBedtimeOverrunTimer();
 
             if (!IsBedtimeLocked)
                 return;
@@ -1564,7 +1783,7 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
             DismissLockOverlayCommand.RaiseCanExecuteChanged();
             NotifyLockOverlayChanged();
             ScreenTimeLockDismissed?.Invoke();
-            AddLog($"{UiCopy.MascotName} woke the computer up â€” good morning, little one!");
+            AddLog($"{UiCopy.MascotName} woke the computer up — good morning, little one!");
         });
     }
 
@@ -1591,6 +1810,33 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
     private void StopBedtimeCountdownTimer() =>
         _bedtimeCountdownTimer?.Stop();
 
+    private void StartBedtimeOverrunTimer()
+    {
+        StopBedtimeOverrunTimer();
+        _bedtimeOverrunTimer = new DispatcherTimer(
+            TimeSpan.FromMinutes(10),
+            DispatcherPriority.Background,
+            OnBedtimeOverrunTick,
+            _dispatcher);
+        _bedtimeOverrunTimer.Start();
+    }
+
+    private void StopBedtimeOverrunTimer()
+    {
+        _bedtimeOverrunTimer?.Stop();
+        _bedtimeOverrunTimer = null;
+    }
+
+    private void OnBedtimeOverrunTick(object? sender, EventArgs e)
+    {
+        if (!IsEnrolled || !_bedtimeSoftWarningBypassed)
+            return;
+
+        _punishment.RegisterInfraction(InfractionKind.LimitIgnored, "bedtime_overrun",
+            "Still up past bedtime");
+        AddLog($"Still up past bedtime — {UiCopy.MascotName} keeps losing a little trust.");
+    }
+
     private void UpdateBedtimeCountdown()
     {
         var remaining = _bedtime.Settings.TimeUntilWake(DateTime.Now);
@@ -1612,6 +1858,7 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
         {
             _showPunishmentCountdown = shouldShow;
             OnPropertyChanged(nameof(ShowPunishmentCountdown));
+            OnPropertyChanged(nameof(ShowDisciplineStatusBox));
         }
 
         OnPropertyChanged(nameof(PunishmentDeescalationLabel));
@@ -1680,7 +1927,9 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
 
         if (IsEnrolled
             && !IsScreenTimeLocked
+            && !IsSoftLimitWarningVisible
             && !_screenTimeLockBypassed
+            && !_softLimitWarningBypassed
             && elapsed.TotalMinutes >= ScreenTimeLimitMinutes)
         {
             ScreenTimeLimitReached();
@@ -1971,7 +2220,13 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
 
         PostOnUi(() =>
         {
-            AddLog($"{UiCopy.MascotName} closed {appName} â€” its daily time limit was reached.");
+            if (!IsHardDisciplineEnforcement)
+            {
+                AddLog(string.Format(UiCopy.SoftLimitReminderFormat, appName));
+                return;
+            }
+
+            AddLog($"{UiCopy.MascotName} closed {appName} — its daily time limit was reached.");
             AppBlockedPopupRequested?.Invoke(
                 UiCopy.AppTimeLimitReachedTitle,
                 string.Format(UiCopy.AppTimeLimitReachedMessageFormat, appName, limitLabel));
@@ -2067,7 +2322,7 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
 
         PostOnUi(() =>
         {
-            AddLog($"{UiCopy.MascotName} closed {gameName} â€” study time is active.");
+            AddLog($"{UiCopy.MascotName} closed {gameName} — study time is active.");
             AppBlockedPopupRequested?.Invoke(title, message);
         });
     }
@@ -2140,33 +2395,114 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
 
     private void OnGamingLimitReached(string limitLabel)
     {
-        _punishment.RegisterInfraction(
-            InfractionKind.LimitIgnored,
-            "gaming",
-            UiCopy.InfractionGamingDetail);
-
         PostOnUi(() =>
         {
-            AddLog($"{UiCopy.MascotName} closed your games â€” daily play time limit reached.");
+            if (!IsHardDisciplineEnforcement)
+            {
+                if (_gamingSoftLimitWarningBypassed)
+                {
+                    // Subsequent minutes after bypass: drain trust + nag every 3 min.
+                    _punishment.RegisterInfraction(
+                        InfractionKind.LimitIgnored,
+                        "gaming",
+                        UiCopy.InfractionGamingDetail);
+                    _gamingNagTickCount++;
+                    if (_gamingNagTickCount % NagEveryTicks == 0)
+                        AppBlockedPopupRequested?.Invoke(
+                            UiCopy.NagTitle,
+                            UiCopy.NextLimitIgnoredNag("your games"));
+                }
+                else if (!_gamingSoftLimitOverlayOpen)
+                {
+                    // First time over limit: show overlay, no infraction yet.
+                    ShowGamingSoftLimitOverlay(limitLabel);
+                }
+                return;
+            }
+
+            _punishment.RegisterInfraction(
+                InfractionKind.LimitIgnored,
+                "gaming",
+                UiCopy.InfractionGamingDetail);
+            AddLog($"{UiCopy.MascotName} closed your games — daily play time limit reached.");
             AppBlockedPopupRequested?.Invoke(
                 UiCopy.PlayTimeLimitReachedTitle,
                 UiCopy.PlayTimeLimitReachedMessageFormat(limitLabel));
         });
     }
 
+    private void ShowGamingSoftLimitOverlay(string limitLabel)
+    {
+        _gamingSoftLimitOverlayOpen = true;
+        var overlay = new Views.GamingSoftLimitOverlayWindow(limitLabel);
+        overlay.Closed += (_, _) =>
+        {
+            _gamingSoftLimitOverlayOpen = false;
+            if (!overlay.UserChoseToContinue)
+            {
+                // User agreed to stop — enforce the closure.
+                _gaming.KillRunningGames();
+                AddLog("Stopped playing after reaching the daily game limit.");
+                return;
+            }
+            _gamingSoftLimitWarningBypassed = true;
+            _punishment.RegisterInfraction(
+                InfractionKind.LimitIgnored,
+                "gaming",
+                UiCopy.InfractionGamingDetail);
+            AddLog("Kept playing past the daily game limit — Guardi's trust dipped a little.");
+        };
+        overlay.Show();
+    }
+
     private void OnYoutubeLimitReached(string limitLabel)
     {
-        _punishment.RegisterInfraction(
-            InfractionKind.LimitIgnored,
-            "youtube",
-            UiCopy.InfractionYoutubeDetail);
-
         PostOnUi(() =>
         {
-            AddLog($"{UiCopy.MascotName} closed the YouTube tab â€” daily time limit reached.");
+            if (!IsHardDisciplineEnforcement)
+            {
+                // Soft mode: extension shows in-page overlay. No infraction until the user
+                // explicitly clicks "Continue watching" (see OnYoutubeSoftAck). After the
+                // first ack, subsequent ticks drain trust silently every minute.
+                if (_youtubeSoftLimitWarningBypassed)
+                {
+                    _punishment.RegisterInfraction(
+                        InfractionKind.LimitIgnored,
+                        "youtube",
+                        UiCopy.InfractionYoutubeDetail);
+                    _youtubeNagTickCount++;
+                    if (_youtubeNagTickCount % NagEveryTicks == 0)
+                        AppBlockedPopupRequested?.Invoke(
+                            UiCopy.NagTitle,
+                            UiCopy.NextLimitIgnoredNag("YouTube"));
+                }
+                return;
+            }
+
+            _punishment.RegisterInfraction(
+                InfractionKind.LimitIgnored,
+                "youtube",
+                UiCopy.InfractionYoutubeDetail);
+            AddLog($"{UiCopy.MascotName} closed the YouTube tab — daily time limit reached.");
             AppBlockedPopupRequested?.Invoke(
                 UiCopy.YoutubeLimitReachedTitle,
                 UiCopy.YoutubeLimitReachedMessageFormat(limitLabel));
+        });
+    }
+
+    private void OnYoutubeSoftAck()
+    {
+        PostOnUi(() =>
+        {
+            if (_youtubeSoftLimitWarningBypassed)
+                return;
+
+            _youtubeSoftLimitWarningBypassed = true;
+            _punishment.RegisterInfraction(
+                InfractionKind.LimitIgnored,
+                "youtube",
+                UiCopy.InfractionYoutubeDetail);
+            AddLog("Kept watching YouTube past the daily limit — Guardi's trust dipped a little.");
         });
     }
 
@@ -2176,7 +2512,7 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
 
         PostOnUi(() =>
         {
-            AddLog($"{UiCopy.MascotName} closed {sourceLabel} â€” study time is active.");
+            AddLog($"{UiCopy.MascotName} closed {sourceLabel} — study time is active.");
             AppBlockedPopupRequested?.Invoke(title, message);
         });
     }
@@ -2228,10 +2564,20 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
             OnPropertyChanged(nameof(LevelSubtitle));
             OnPropertyChanged(nameof(HeaderCenterTitle));
             OnPropertyChanged(nameof(HeaderCenterSubtitle));
+            OnPropertyChanged(nameof(HomeGreetingTitle));
+            OnPropertyChanged(nameof(HomeGreetingSubtitle));
             OnPropertyChanged(nameof(AppSubtitle));
             OnPropertyChanged(nameof(ShowMascot));
             OnPropertyChanged(nameof(IsMatureUi));
             OnPropertyChanged(nameof(IsSubMode));
+            OnPropertyChanged(nameof(IsTrustedSubMode));
+            OnPropertyChanged(nameof(IsRestrictedSubMode));
+            OnPropertyChanged(nameof(ShowMascotGuardi));
+            OnPropertyChanged(nameof(ShowMascotTrustedSub));
+            OnPropertyChanged(nameof(ShowMascotRestrictedSub));
+            OnPropertyChanged(nameof(ShowLockMascotGuardi));
+            OnPropertyChanged(nameof(ShowLockMascotTrustedSub));
+            OnPropertyChanged(nameof(ShowLockMascotRestrictedSub));
             OnPropertyChanged(nameof(HeaderIconGlyph));
             OnPropertyChanged(nameof(MascotGreeting));
             OnPropertyChanged(nameof(StandingLabel));
@@ -2271,6 +2617,13 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
             ReconcileImageShield();
             RefreshRestrictions();
             SyncPunishmentCountdownTimer();
+
+            // A changed daily limit (Dom edit, mode switch, etc.) re-arms the soft warning —
+            // otherwise reaching a newly-lowered/raised limit again would stay silently bypassed.
+            if (_lastScreenTimeLimitMinutesForBypass is { } previous && previous != ScreenTimeLimitMinutes)
+                _softLimitWarningBypassed = false;
+            _lastScreenTimeLimitMinutesForBypass = ScreenTimeLimitMinutes;
+
             OnScreenTimeElapsed();
             SyncKioskState();
             ModePresentationChanged?.Invoke();
@@ -2321,6 +2674,7 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
                 Label = InfractionKindLabel(record.Kind),
                 Detail = record.Detail,
                 Time = record.At.ToLocalTime().ToString("HH:mm"),
+                TrustPointsLost = record.TrustPointsLost,
             });
 
             while (Infractions.Count > 25)
@@ -2361,9 +2715,12 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
         OnPropertyChanged(nameof(ShowDisciplineProgress));
         OnPropertyChanged(nameof(DisciplineProgressText));
         OnPropertyChanged(nameof(DisciplineProgressValue));
+        OnPropertyChanged(nameof(TrustValue));
         OnPropertyChanged(nameof(IsDisciplineEscalated));
         OnPropertyChanged(nameof(DisciplineModeStatus));
+        OnPropertyChanged(nameof(ShowDisciplineStatusBox));
         OnPropertyChanged(nameof(ShowInfractionsGood));
+        OnPropertyChanged(nameof(HasRecentInfractions));
         RefreshTodayRules();
     }
 
@@ -2372,16 +2729,8 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
         if (!IsDisciplineEnabled)
             return UiCopy.DisciplineDisabledHint;
 
-        var currentStrictness = DisciplineTargetStrictnessIndex;
-        if (currentStrictness >= AgentModeRegistry.MaxStrictnessIndex)
-            return UiCopy.DisciplineMaxLevelText;
-
-        var nextMode = AgentModeRegistry.AtStrictnessIndex(currentStrictness + 1).DisplayName;
-        return string.Format(
-            UiCopy.DisciplineProgressFormat,
-            InfractionCount,
-            _punishment.Threshold,
-            nextMode);
+        // The gauge itself communicates "how close to stricter mode"; show its zone message.
+        return UiCopy.TrustZoneText(_punishment.TrustValue, _punishment.Zone);
     }
 
     private string BuildDisciplineModeStatus()
@@ -2463,7 +2812,7 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
 
         if (!shouldRun)
         {
-            AuditLog.Write("Image shield skipped â€” disabled by Dom policy or current supervision mode.");
+            AuditLog.Write("Image shield skipped — disabled by Dom policy or current supervision mode.");
             _extensionGuard.Stop();
             ImageShieldRuntimeStore.SetFilteringActive(false);
             if (_imageShield.HasPersistedInstall)
@@ -2554,6 +2903,8 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
 
     private void RefreshModeSteps()
     {
+        _urlBlocking.SetMode(_agentMode.DisplayName, _agentMode.Theme);
+
         var steps = _agentMode.BuildModeSteps().ToList();
 
         void Apply()
@@ -2577,7 +2928,10 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
             _gaming.ApplySettings(payload, replaceGameLists);
 
             if (payload.DailyLimitMinutes is { } limit && limit != limitBefore)
+            {
                 AddLog($"{UiCopy.MascotName} updated the daily play time limit to {FormatDuration(_gaming.LimitDuration)}.");
+                _gamingSoftLimitWarningBypassed = false;
+            }
 
             OnGamingUsageChanged();
         });
@@ -2595,7 +2949,12 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
             _youtube.ApplySettings(payload);
 
             if (payload.DailyLimitMinutes is { } limit && limit != limitBefore)
+            {
                 AddLog($"{UiCopy.MascotName} updated the daily YouTube limit to {FormatDuration(_youtube.LimitDuration)}.");
+
+                // Re-arm the soft warning — a changed limit reached again should drop trust again.
+                _youtubeSoftLimitWarningBypassed = false;
+            }
 
             if (payload.RestrictedModeEnabled is { } restricted && restricted != restrictedBefore)
                 ReconcileYoutubeRestrictedMode();
@@ -2660,7 +3019,7 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
                     Path = app.Path,
                     Args = app.Args,
                     IconImage = ExecutableIconService.GetForPath(app.Path),
-                    IconGlyph = string.IsNullOrWhiteSpace(app.Icon) ? "ðŸ“¦" : app.Icon!,
+                    IconGlyph = string.IsNullOrWhiteSpace(app.Icon) ? "\U0001F4E6" : app.Icon!,
                 })
                 .ToList();
 
@@ -2836,6 +3195,9 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
             return;
 
         _screenTimeLockBypassed = false;
+        _softLimitWarningBypassed = false;
+        _youtubeSoftLimitWarningBypassed = false;
+        _gamingSoftLimitWarningBypassed = false;
         _host.ResetEnrollment(this);
         EnrollmentCode = string.Empty;
         _punishment.Reset();

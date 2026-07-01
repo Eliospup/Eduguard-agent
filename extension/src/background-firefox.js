@@ -10,6 +10,7 @@ import { parseUiMode } from "./mode-ui.js";
 import { installNewTabRedirect } from "./newtab-redirect.js";
 import { installSearchGuard } from "./search-guard.js";
 import { installYoutubeTimeGuard } from "./youtube-time-guard.js";
+import { installCategoryGuard } from "./category-guard.js";
 import { installExtensionHeartbeat } from "./heartbeat.js";
 
 const api = typeof browser !== "undefined" ? browser : chrome;
@@ -151,6 +152,7 @@ const newTabCtrl = installNewTabRedirect(api, {
   enabled: true,
 });
 const youtubeGuard = installYoutubeTimeGuard(api, () => currentManaged);
+const categoryGuard = installCategoryGuard(api, () => currentManaged);
 
 async function warmupModel() {
   try {
@@ -168,6 +170,7 @@ async function onShieldStateChange(active, managed) {
   currentManaged = managed || { shieldActive: active };
   lastStateRefreshAt = Date.now();
   youtubeGuard.onManagedChange();
+  categoryGuard.onManagedChange();
   engine.applyManaged(currentManaged);
   syncGuardiChrome(api, active, parseUiMode(currentManaged));
 
@@ -191,6 +194,7 @@ const shieldWatcher = createBackgroundStateWatcher(api, {
   onChange: (active, managed) => {
     onShieldStateChange(active, managed);
     youtubeGuard.sync();
+    categoryGuard.sync();
   },
   getHeartbeatStatus: () => ({ shieldActive, modelReady }),
   pollMs: 1200,

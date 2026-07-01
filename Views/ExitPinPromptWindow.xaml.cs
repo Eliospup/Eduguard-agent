@@ -25,9 +25,7 @@ internal partial class ExitPinPromptWindow : Window
             : UiCopy.ExitPinPrompt;
         ConfirmButton.Content = UiCopy.ExitPinConfirm;
         CancelButton.Content = UiCopy.ExitPinCancel;
-        Mascot.Visibility = UiPresentationState.Current.ShowMascot
-            ? Visibility.Visible
-            : Visibility.Collapsed;
+        UiPresentationState.ApplyMascotVisibility(Mascot, TrustedSubMascotIcon, RestrictedSubMascotIcon);
 
         _lockoutTimer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Normal, OnLockoutTick, Dispatcher);
         Loaded += (_, _) =>

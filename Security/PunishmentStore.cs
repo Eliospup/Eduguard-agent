@@ -40,11 +40,31 @@ internal sealed class PunishmentStore
         }
     }
 
+    internal sealed class StoredInfractionRecord
+    {
+        public string Kind { get; set; } = string.Empty;
+        public string Detail { get; set; } = string.Empty;
+        public string At { get; set; } = string.Empty;
+        public int TrustPointsLost { get; set; }
+    }
+
     internal sealed class StoredPunishment
     {
         public int FloorIndex { get; set; }
         public int InfractionCount { get; set; }
         public DateTimeOffset? PunishmentUntil { get; set; }
+
+        /// <summary>Trust gauge (0-100). Defaults to full so existing installs start trusted.</summary>
+        public double Trust { get; set; } = PunishmentSettings.MaxTrust;
+
+        public int RegenPerHour { get; set; } = 5;
+
+        public int WeightVpn { get; set; } = 25;
+        public int WeightBypass { get; set; } = 20;
+        public int WeightBlockedApp { get; set; } = 15;
+        public int WeightBlockedSearch { get; set; } = 15;
+        public int WeightStudy { get; set; } = 10;
+        public int WeightLimit { get; set; } = 10;
 
         public bool Enabled { get; set; } = true;
 
@@ -76,6 +96,8 @@ internal sealed class PunishmentStore
         public bool InfractionStudyTimeViolation { get; set; } = true;
         public bool InfractionBlockedSearch { get; set; } = true;
 
+        public List<StoredInfractionRecord>? RecentInfractions { get; set; }
+
         public static StoredPunishment Default => new();
 
         public PunishmentSettings ToSettings()
@@ -90,6 +112,16 @@ internal sealed class PunishmentStore
             return new PunishmentSettings
             {
                 Enabled = Enabled,
+                RegenPerHour = RegenPerHour > 0 ? RegenPerHour : 5,
+                InfractionWeights = new InfractionWeightSettings
+                {
+                    VpnAttempt = WeightVpn > 0 ? WeightVpn : 25,
+                    BypassAttempt = WeightBypass > 0 ? WeightBypass : 20,
+                    BlockedAppRepeated = WeightBlockedApp > 0 ? WeightBlockedApp : 15,
+                    BlockedSearch = WeightBlockedSearch > 0 ? WeightBlockedSearch : 15,
+                    StudyTimeViolation = WeightStudy > 0 ? WeightStudy : 10,
+                    LimitIgnored = WeightLimit > 0 ? WeightLimit : 10,
+                },
                 ThresholdTrustedToSub = trustedThreshold,
                 ThresholdSubToRestricted = restrictedThreshold,
                 EscalationHours = EscalationHours > 0 ? EscalationHours : 6,

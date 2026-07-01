@@ -4,5 +4,9 @@ namespace EduGuardAgent.Views;
 
 public partial class GuardiMascot : UserControl
 {
-    public GuardiMascot() => InitializeComponent();
+    public GuardiMascot()
+    {
+        InitializeComponent();
+        MascotImageLoader.Apply(PngImage, VectorFallback, "guardi.png");
+    }
 }

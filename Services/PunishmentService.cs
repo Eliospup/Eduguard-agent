@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Windows.Threading;
 using EduGuardAgent.Models;
 using EduGuardAgent.Profiles;
@@ -5,7 +6,7 @@ using EduGuardAgent.Security;
 
 namespace EduGuardAgent.Services;
 
-internal readonly record struct InfractionRecord(InfractionKind Kind, string Detail, DateTimeOffset At);
+internal readonly record struct InfractionRecord(InfractionKind Kind, string Detail, DateTimeOffset At, int TrustPointsLost);
 
 /// <summary>
 /// Tracks infractions and auto-escalates the enforced strictness level. The punishment level
@@ -21,6 +22,7 @@ internal sealed class PunishmentService : IDisposable
     private static readonly TimeSpan LimitCooldown = TimeSpan.FromMinutes(5);
     private const int BlockedAppThreshold = 3;
     private const int MaxRecentInfractions = 50;
+    private const int MaxRecentPersisted = 25;
 
     private readonly Dispatcher _dispatcher;
     private readonly Func<int> _baseStrictnessProvider;
@@ -34,10 +36,12 @@ internal sealed class PunishmentService : IDisposable
     private PunishmentSettings _settings;
     private int _floorIndex;
     private int _infractionCount;
+    private double _trust;
     private DateTimeOffset? _punishmentUntil;
     private bool _active;
     private DispatcherTimer? _timer;
     private bool _disposed;
+    private readonly List<InfractionRecord> _recentPersistedInfractions = new();
 
     public PunishmentService(Dispatcher dispatcher, Func<int> baseStrictnessProvider)
     {
@@ -48,11 +52,25 @@ internal sealed class PunishmentService : IDisposable
         _settings = stored.ToSettings();
         _floorIndex = Math.Clamp(stored.FloorIndex, 0, AgentModeRegistry.MaxStrictnessIndex);
         _infractionCount = Math.Max(0, stored.InfractionCount);
-        _punishmentUntil = stored.PunishmentUntil;
+        _trust = Math.Clamp(stored.Trust, 0, PunishmentSettings.MaxTrust);
 
-        CatchUpDecays(DateTimeOffset.UtcNow, persist: true, notify: true);
+        if (stored.RecentInfractions is { } storedInfractions)
+        {
+            foreach (var si in storedInfractions)
+            {
+                if (Enum.TryParse<InfractionKind>(si.Kind, out var kind)
+                    && DateTimeOffset.TryParse(si.At, out var at))
+                {
+                    _recentPersistedInfractions.Add(new InfractionRecord(kind, si.Detail, at, si.TrustPointsLost));
+                }
+            }
+        }
 
-        _timer = new DispatcherTimer(DecayCheckInterval, DispatcherPriority.Background, OnDecayTick, dispatcher);
+        // Offline time earns no trust back (no supervision = no clean-time credit); resume
+        // from the stored gauge and recompute the "time to earn back a level" countdown.
+        RecomputePunishmentUntil(DateTimeOffset.UtcNow);
+
+        _timer = new DispatcherTimer(DecayCheckInterval, DispatcherPriority.Background, OnRegenTick, dispatcher);
     }
 
     /// <summary>Raised whenever the floor level changes (escalation or decay). Carries the new floor index.</summary>
@@ -77,6 +95,18 @@ internal sealed class PunishmentService : IDisposable
         get { lock (_lock) return _infractionCount; }
     }
 
+    /// <summary>Current trust gauge, 0-100.</summary>
+    public int TrustValue
+    {
+        get { lock (_lock) return (int)Math.Round(_trust); }
+    }
+
+    /// <summary>Which trust zone the gauge is in (drives tone + escalation).</summary>
+    public TrustZone Zone
+    {
+        get { lock (_lock) return PunishmentSettings.ZoneFor((int)Math.Round(_trust)); }
+    }
+
     public int Threshold
     {
         get
@@ -90,6 +120,8 @@ internal sealed class PunishmentService : IDisposable
     {
         get { lock (_lock) return _settings.Enabled; }
     }
+
+    public IReadOnlyList<InfractionRecord> RecentInfractions => _recentPersistedInfractions;
 
     public DateTimeOffset? PunishmentUntil
     {
@@ -135,7 +167,10 @@ internal sealed class PunishmentService : IDisposable
 
         lock (_lock)
         {
-            record = new InfractionRecord(kind, detail, now);
+            // Only a real, enforced gauge drop counts as "points lost" — when discipline is
+            // disabled the infraction is still logged but nothing was actually deducted.
+            var pointsLost = _settings.Enabled ? _settings.InfractionWeights.For(kind) : 0;
+            record = new InfractionRecord(kind, detail, now, pointsLost);
             _pendingReport.Enqueue(new InfractionEventPayload
             {
                 Kind = kind.ToApiKey(),
@@ -151,11 +186,11 @@ internal sealed class PunishmentService : IDisposable
             }
             else
             {
+                // Drop the gauge by the kind's weight; bottoming out bumps the mode floor.
+                _trust = Math.Max(0, _trust - _settings.InfractionWeights.For(kind));
                 _infractionCount++;
-                var threshold = _settings.ThresholdForFloor(_floorIndex);
-                var triggeredEscalation = _infractionCount >= threshold;
 
-                if (triggeredEscalation)
+                if (_trust <= PunishmentSettings.EscalationThreshold)
                 {
                     var effective = Math.Max(_baseStrictnessProvider(), _floorIndex);
                     var target = Math.Min(effective + 1, AgentModeRegistry.MaxStrictnessIndex);
@@ -168,18 +203,20 @@ internal sealed class PunishmentService : IDisposable
                         floorChanged = true;
                     }
 
-                    _punishmentUntil = Max(now, _punishmentUntil ?? now) + EscalationDuration;
+                    // Reset above the escalation band so a single extra slip doesn't chain
+                    // escalations; the gauge then regenerates back toward full.
+                    _trust = PunishmentSettings.ReescalateReset;
                     _infractionCount = 0;
                 }
-                else if (_floorIndex > 0)
-                {
-                    _punishmentUntil = Max(now, _punishmentUntil ?? now)
-                        + ExtensionDurationFor(kind);
-                }
 
+                RecomputePunishmentUntil(now);
                 Persist();
             }
         }
+
+        _recentPersistedInfractions.Insert(0, record);
+        while (_recentPersistedInfractions.Count > MaxRecentPersisted)
+            _recentPersistedInfractions.RemoveAt(_recentPersistedInfractions.Count - 1);
 
         InfractionRegistered?.Invoke(record);
         if (floorChanged)
@@ -278,6 +315,8 @@ internal sealed class PunishmentService : IDisposable
                 ?? current.ThresholdSubToRestricted,
             EscalationHours = payload.EscalationHours ?? current.EscalationHours,
             EscalationMinutes = payload.EscalationMinutes ?? current.EscalationMinutes,
+            RegenPerHour = payload.RegenPerHour ?? current.RegenPerHour,
+            InfractionWeights = current.InfractionWeights.Merge(payload.InfractionWeights),
             InfractionKinds = current.InfractionKinds.Merge(payload.InfractionKinds),
             InfractionExtensions = extensions,
         };
@@ -309,11 +348,13 @@ internal sealed class PunishmentService : IDisposable
         var changed = false;
         lock (_lock)
         {
-            if (_floorIndex != 0 || _punishmentUntil is not null)
+            if (_floorIndex != 0 || _punishmentUntil is not null || _trust < PunishmentSettings.MaxTrust)
                 changed = true;
 
             _floorIndex = 0;
+            _trust = PunishmentSettings.MaxTrust;
             _punishmentUntil = null;
+            _recentPersistedInfractions.Clear();
             Persist();
         }
 
@@ -336,14 +377,17 @@ internal sealed class PunishmentService : IDisposable
         var changed = false;
         lock (_lock)
         {
-            if (_floorIndex != 0 || _infractionCount != 0 || _punishmentUntil is not null)
+            if (_floorIndex != 0 || _infractionCount != 0 || _punishmentUntil is not null
+                || _trust < PunishmentSettings.MaxTrust)
                 changed = true;
 
             _floorIndex = 0;
             _infractionCount = 0;
+            _trust = PunishmentSettings.MaxTrust;
             _punishmentUntil = null;
             _appHits.Clear();
             _lastCounted.Clear();
+            _recentPersistedInfractions.Clear();
             Persist();
         }
 
@@ -353,33 +397,61 @@ internal sealed class PunishmentService : IDisposable
         StateChanged?.Invoke();
     }
 
-    private void OnDecayTick(object? sender, EventArgs e) =>
-        CatchUpDecays(DateTimeOffset.UtcNow, persist: true, notify: true);
-
-    private void CatchUpDecays(DateTimeOffset now, bool persist, bool notify)
+    private void OnRegenTick(object? sender, EventArgs e)
     {
+        // Trust only regenerates during supervised time — being off earns no credit.
+        if (!_active)
+            return;
+
+        var now = DateTimeOffset.UtcNow;
         var floorChanged = false;
 
         lock (_lock)
         {
-            while (_floorIndex > 0 && _punishmentUntil is { } until && now >= until)
+            if (!_settings.Enabled || _trust >= PunishmentSettings.MaxTrust && _floorIndex == 0)
+            {
+                RecomputePunishmentUntil(now);
+                return;
+            }
+
+            _trust = Math.Min(PunishmentSettings.MaxTrust, _trust + RegenPerTick);
+
+            // Reaching full trust at a punished level earns one step back down.
+            if (_trust >= PunishmentSettings.MaxTrust && _floorIndex > 0)
             {
                 _floorIndex--;
                 _infractionCount = 0;
                 floorChanged = true;
-                _punishmentUntil = _floorIndex > 0 ? until + EscalationDuration : null;
+                _trust = _floorIndex > 0 ? PunishmentSettings.StepDownReset : PunishmentSettings.MaxTrust;
             }
 
-            if (floorChanged && persist)
-                Persist();
+            RecomputePunishmentUntil(now);
+            Persist();
         }
 
-        if (floorChanged && notify)
-        {
+        if (floorChanged)
             FloorLevelChanged?.Invoke(_floorIndex);
-            StateChanged?.Invoke();
-        }
+
+        StateChanged?.Invoke();
     }
+
+    /// <summary>Synthetic "time to earn back a level" — when the gauge will next reach full.</summary>
+    private void RecomputePunishmentUntil(DateTimeOffset now)
+    {
+        if (_floorIndex <= 0)
+        {
+            _punishmentUntil = null;
+            return;
+        }
+
+        var perHour = Math.Max(1, _settings.RegenPerHour) * (Config.TestingShortPunishment ? 60 : 1);
+        var hoursToFull = Math.Max(0, PunishmentSettings.MaxTrust - _trust) / perHour;
+        _punishmentUntil = now + TimeSpan.FromHours(hoursToFull);
+    }
+
+    /// <summary>Trust points regained each timer tick (accelerated in the testing build).</summary>
+    private double RegenPerTick =>
+        _settings.RegenPerHour * DecayCheckInterval.TotalHours * (Config.TestingShortPunishment ? 60 : 1);
 
     public void ApplyTo(HeartbeatRequest request)
     {
@@ -408,6 +480,8 @@ internal sealed class PunishmentService : IDisposable
                 FloorIndex = _floorIndex,
                 IsPunished = _floorIndex > baseIndex,
                 InfractionCount = _infractionCount,
+                Trust = (int)Math.Round(_trust),
+                TrustZone = PunishmentSettings.ZoneFor((int)Math.Round(_trust)).ToString(),
                 PunishmentUntil = _punishmentUntil?.ToString("o"),
                 SecondsUntilDecay = secondsUntilDecay,
                 RecentInfractions = recent,
@@ -415,21 +489,30 @@ internal sealed class PunishmentService : IDisposable
         }
     }
 
-    private TimeSpan EscalationDuration =>
-        new DurationParts(_settings.EscalationHours, _settings.EscalationMinutes)
-            .ToTimeSpan(Config.TestingShortPunishment);
-
-    private TimeSpan ExtensionDurationFor(InfractionKind kind) =>
-        _settings.InfractionExtensions.For(kind).ToTimeSpan(Config.TestingShortPunishment);
-
-    private static DateTimeOffset Max(DateTimeOffset a, DateTimeOffset b) => a > b ? a : b;
-
     private void Persist()
     {
+        var recentSnapshot = _recentPersistedInfractions
+            .Select(r => new PunishmentStore.StoredInfractionRecord
+            {
+                Kind = r.Kind.ToString(),
+                Detail = r.Detail,
+                At = r.At.ToString("o"),
+                TrustPointsLost = r.TrustPointsLost,
+            })
+            .ToList();
+
         _store.Save(new PunishmentStore.StoredPunishment
         {
             FloorIndex = _floorIndex,
             InfractionCount = _infractionCount,
+            Trust = _trust,
+            RegenPerHour = _settings.RegenPerHour,
+            WeightVpn = _settings.InfractionWeights.VpnAttempt,
+            WeightBypass = _settings.InfractionWeights.BypassAttempt,
+            WeightBlockedApp = _settings.InfractionWeights.BlockedAppRepeated,
+            WeightBlockedSearch = _settings.InfractionWeights.BlockedSearch,
+            WeightStudy = _settings.InfractionWeights.StudyTimeViolation,
+            WeightLimit = _settings.InfractionWeights.LimitIgnored,
             PunishmentUntil = _punishmentUntil,
             Enabled = _settings.Enabled,
             ThresholdTrustedToSub = _settings.ThresholdTrustedToSub,
@@ -454,6 +537,7 @@ internal sealed class PunishmentService : IDisposable
             InfractionLimitIgnored = _settings.InfractionKinds.LimitIgnored,
             InfractionStudyTimeViolation = _settings.InfractionKinds.StudyTimeViolation,
             InfractionBlockedSearch = _settings.InfractionKinds.BlockedSearch,
+            RecentInfractions = recentSnapshot,
         });
     }
 

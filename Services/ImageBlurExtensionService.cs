@@ -119,7 +119,11 @@ internal sealed class ImageBlurExtensionService : IDisposable
 
             return false;
 
-
+        // The ExtensionSettings.private_browsing policy only sets the initial value — Firefox
+        // leaves the per-add-on "Run in Private Windows" toggle fully user-editable, so a
+        // supervised user can flip it back off. Re-grant it on every enforcement tick.
+        if (browser.Kind == BrowserKind.Firefox)
+            FirefoxPrivateBrowsingEnforcer.EnsureGranted(cfg.FirefoxAddonId);
 
         return method switch
 

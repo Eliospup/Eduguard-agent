@@ -234,7 +234,7 @@ internal partial class MainViewModel
                 IconType = TodayRuleIconType.Study,
                 Value = IsStudyModeActive
                     ? (_studyTime.ActiveUntilLabel is { Length: > 0 } until
-                        ? $"{UiCopy.StudyTimeTileActive} Â· {until}"
+                        ? $"{UiCopy.StudyTimeTileActive} · {until}"
                         : UiCopy.StudyTimeTileActive)
                     : StudyTimeLabel,
                 IsEmphasis = IsStudyModeActive,

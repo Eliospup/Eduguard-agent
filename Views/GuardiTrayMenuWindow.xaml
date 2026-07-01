@@ -31,11 +31,11 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <views:GuardiMascot x:Name="Mascot"
-                                    Width="44"
-                                    Height="50"
-                                    Margin="0,0,10,0"
-                                    VerticalAlignment="Center" />
+                <Grid Margin="0,0,10,0" VerticalAlignment="Center">
+                    <views:GuardiMascot x:Name="Mascot" Width="62" Height="70" />
+                    <views:TrustedSubMascot x:Name="TrustedSubMascotIcon" Width="62" Height="70" />
+                    <views:RestrictedSubMascot x:Name="RestrictedSubMascotIcon" Width="62" Height="70" />
+                </Grid>
                 <Border x:Name="ShieldHost"
                         Width="40"
                         Height="40"

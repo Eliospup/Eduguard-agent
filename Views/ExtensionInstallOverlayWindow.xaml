@@ -14,10 +14,11 @@
           MaxWidth="640"
           Margin="40,32">
         <StackPanel>
-            <views:GuardiMascot Width="140"
-                                Height="160"
-                                HorizontalAlignment="Center"
-                                Margin="0,0,0,28" />
+            <Grid HorizontalAlignment="Center" Margin="0,0,0,28">
+                <views:GuardiMascot x:Name="Mascot" Width="140" Height="160" />
+                <views:TrustedSubMascot x:Name="TrustedSubMascotIcon" Width="140" Height="160" />
+                <views:RestrictedSubMascot x:Name="RestrictedSubMascotIcon" Width="140" Height="160" />
+            </Grid>
 
             <TextBlock x:Name="HeadlineText"
                        FontSize="36"

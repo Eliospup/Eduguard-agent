@@ -9,7 +9,7 @@ internal static class LocalModeCopy
     public const string EnterButton = "Enter local mode";
     public const string ExitButton = "Exit local mode & sync with web";
     public const string ManageButton = "Local settings";
-    public const string StatusLabel = "Local mode â€” web settings ignored";
+    public const string StatusLabel = "Local mode — web settings ignored";
 
     public const string AutoStartLabel = "Open Guardi at Windows sign-in";
     public const string AutoStartDescription =
@@ -62,12 +62,12 @@ internal static class LocalModeCopy
         "Chrome: Web Store force-install (personal Windows) or --load-extension for local dist/chromium. Edge/Brave share the same policy.";
     public const string ImageShieldAdvancedTitle = "Sensitivity";
     public const string ImageShieldMinSizeLabel = "Min image size (px)";
-    public const string ImageShieldThresholdLabel = "NSFW threshold (0.4 strict â€¦ 0.8 loose)";
+    public const string ImageShieldThresholdLabel = "NSFW threshold (0.4 strict … 0.8 loose)";
     public const string ImageShieldMaxPerSecondLabel = "Max classifications per second";
     public const string ImageShieldRuntimeStatusTitle = "Runtime status";
     public const string ImageShieldCopyReportButton = "Copy shield report";
     public const string ImageShieldCopyReportHint =
-        "Policies, install method, versions and recent audit lines â€” for Dom support or debugging.";
+        "Policies, install method, versions and recent audit lines — for Dom support or debugging.";
     public const string ImageShieldCopyReportDone = "Shield diagnostic copied to clipboard.";
     public const string ImageShieldFirefoxDevHint =
         "Requires Firefox Developer Edition (or sideload via about:debugging). Guardi must run as administrator.";
@@ -82,23 +82,23 @@ internal static class LocalModeCopy
     public const string AppLimitsListHint = "Time counts while the app is in the foreground. Saved per supervision mode.";
     public const string AppLimitInvalidExe = "Enter a valid app name (letters, numbers, spaces, .exe).";
 
-    public const string EnabledLog = "Local mode on â€” web settings are ignored.";
+    public const string EnabledLog = "Local mode on — web settings are ignored.";
     public const string DisabledLog = "Local mode off.";
-    public const string SyncingLog = "Syncing with the web dashboardâ€¦";
+    public const string SyncingLog = "Syncing with the web dashboard…";
     public const string SyncedLog = "Synced with the web dashboard.";
     public const string SyncFailedKeepLocal =
-        "Could not reach the web dashboard â€” local mode stays on and your local settings are still active.";
+        "Could not reach the web dashboard — local mode stays on and your local settings are still active.";
 
     public const string PinRequiredForSettings = "Enter your exit PIN to open local settings.";
     public const string SectionSavedLog = "Local settings saved.";
     public const string KioskAppsTitle = "Detected apps on this PC";
     public const string KioskAppsHint =
-        "Common apps found on this computer are whitelisted by default. Turn off any app you do not want in kiosk mode.";
+        "Common apps found on this computer are whitelisted by default. Toggling a switch saves instantly — no separate save step.";
     public const string KioskAppsAddTitle = "Add an app manually";
     public const string KioskAppsAddHint = "Pick a .exe on this PC or paste its full path.";
     public const string KioskAppsPathLabel = "Executable path (.exe)";
     public const string KioskAppsNameLabel = "Display name (optional)";
-    public const string KioskAppsBrowseButton = "Browseâ€¦";
+    public const string KioskAppsBrowseButton = "Browse…";
     public const string KioskAppsAddButton = "Add app";
     public const string KioskAppsRefreshButton = "Scan again";
     public const string KioskAppsEmpty = "No common apps were detected on this PC.";
@@ -107,8 +107,8 @@ internal static class LocalModeCopy
     public const string KioskAppsInvalidPath = "Enter a valid .exe path that exists on this PC.";
     public const string KioskAppsDuplicate = "{0} is already in the kiosk app list.";
     public const string InfractionKindsTitle = "What counts as an infraction";
-    public const string InfractionKindsHint = "Disabled kinds are ignored â€” no count and no escalation.";
+    public const string InfractionKindsHint = "Disabled kinds are ignored — no count and no escalation.";
     public const string ClearPunishmentButton = "Clear punishment";
-    public const string ClearPunishmentLog = "Punishment cleared â€” infraction count and escalation reset.";
+    public const string ClearPunishmentLog = "Punishment cleared — infraction count and escalation reset.";
 }
 

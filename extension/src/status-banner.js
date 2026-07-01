@@ -1,6 +1,6 @@
 // Status chip — Guardi mascot + mode-aware copy.
 
-import { applyModeToDocument, getModeUi, mascotSvg, parseUiMode } from "./mode-ui.js";
+import { applyModeToDocument, getModeUi, modeMascotSvg, parseUiMode } from "./mode-ui.js";
 
 const BANNER_ID = "guardi-status-banner";
 
@@ -98,7 +98,7 @@ function renderBannerContent(ui) {
   const primary = ui.cssVars["--guardi-shield-primary"]?.replace(/"/g, "") || "#0EA5E9";
   const accent = ui.cssVars["--guardi-shield-accent"]?.replace(/"/g, "") || "#7DD3FC";
   return (
-    mascotSvg(primary, accent) +
+    modeMascotSvg(ui.slug, primary, accent) +
     `<span class="guardi-status-banner__text guardi-status-banner__text--full">${ui.copy.bannerFull}</span>` +
     `<span class="guardi-status-banner__text guardi-status-banner__text--compact">${ui.copy.bannerCompact}</span>`
   );

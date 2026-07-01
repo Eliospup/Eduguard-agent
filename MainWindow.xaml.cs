@@ -21,8 +21,10 @@ namespace EduGuardAgent;
 public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel;
-    private readonly BlueLightGammaFilterService _blueLightFilter = new();
+    private readonly BlueLightGammaFilterService _blueLightFilter =
+        new(System.Windows.Application.Current.Dispatcher);
     private readonly System.Collections.Generic.List<LockOverlayWindow> _lockOverlays = new();
+    private SoftLimitWarningWindow? _softLimitWarning;
     private DomMessageOverlayWindow? _domMessageOverlay;
     private AppBlockedToastWindow? _appBlockedToast;
     private BedtimeWarningToastWindow? _bedtimeWarningToast;
@@ -57,6 +59,8 @@ public partial class MainWindow : Window
         _viewModel.ScreenTimeLocked += OnLockOverlayRequested;
         _viewModel.ScreenTimeLockDismissed += OnLockOverlayDismissed;
         _viewModel.LockOverlayChanged += OnLockOverlayChanged;
+        _viewModel.SoftLimitWarningRequested += OnSoftLimitWarningRequested;
+        _viewModel.SoftLimitWarningDismissed += OnSoftLimitWarningDismissed;
         _viewModel.DomMessagePopupRequested += OnDomMessagePopupRequested;
         _viewModel.AppBlockedPopupRequested += OnAppBlockedPopupRequested;
         _viewModel.BedtimeWarningPopupRequested += OnBedtimeWarningPopupRequested;
@@ -263,12 +267,14 @@ public partial class MainWindow : Window
     {
         _blueLightFilter.StartMonitoringDisplayChanges();
         _viewModel.PrepareSession();
-        if (!_viewModel.EnsureSubDisplayName(this))
+        if (!_viewModel.EnsureOnboarded(this))
         {
             _forceClose = true;
             Close();
             return;
         }
+
+        _viewModel.EnsureWelcomeTourShown(this);
 
         _blueLightFilter.SetActive(_viewModel.IsBlueLightFilterActive, _viewModel.BlueLightFilterPhase);
         ShowGuardiWidget();
@@ -353,16 +359,10 @@ public partial class MainWindow : Window
             DragMove();
     }
 
-    private void OnMinimizeClick(object sender, RoutedEventArgs e)
-    {
-        if (_viewModel.IsKioskActive)
-            return;
-
-        WindowState = WindowState.Minimized;
-    }
+    private void OnMinimizeClick(object sender, RoutedEventArgs e) => HideToTray();
 
     private void OnCloseClick(object sender, RoutedEventArgs e) =>
-        RequestClose();
+        ShowCloseConfirmDialog();
 
     private void RequestClose()
     {
@@ -450,6 +450,8 @@ public partial class MainWindow : Window
         _guardiWidget?.Close();
         _guardiWidget = null;
         HideLockOverlayIfNeeded();
+        _softLimitWarning?.ForceClose();
+        _softLimitWarning = null;
         _domMessageOverlay?.Close();
         _domMessageOverlay = null;
         _appBlockedToast?.Close();
@@ -471,6 +473,8 @@ public partial class MainWindow : Window
         _viewModel.KioskStateChanged -= OnKioskStateChanged;
         _viewModel.ScreenTimeLockDismissed -= OnLockOverlayDismissed;
         _viewModel.LockOverlayChanged -= OnLockOverlayChanged;
+        _viewModel.SoftLimitWarningRequested -= OnSoftLimitWarningRequested;
+        _viewModel.SoftLimitWarningDismissed -= OnSoftLimitWarningDismissed;
         _viewModel.DomMessagePopupRequested -= OnDomMessagePopupRequested;
         _viewModel.AppBlockedPopupRequested -= OnAppBlockedPopupRequested;
         _viewModel.BedtimeWarningPopupRequested -= OnBedtimeWarningPopupRequested;
@@ -528,6 +532,31 @@ public partial class MainWindow : Window
             overlay.ForceClose();
         }
         _lockOverlays.Clear();
+    }
+
+    private void OnSoftLimitWarningRequested()
+    {
+        if (_softLimitWarning is not null)
+            return;
+
+        _softLimitWarning = new SoftLimitWarningWindow
+        {
+            DataContext = _viewModel,
+            Owner = this,
+            WindowStartupLocation = WindowStartupLocation.Manual,
+            Left = SystemParameters.VirtualScreenLeft,
+            Top = SystemParameters.VirtualScreenTop,
+            Width = SystemParameters.VirtualScreenWidth,
+            Height = SystemParameters.VirtualScreenHeight,
+            WindowState = WindowState.Normal
+        };
+        _softLimitWarning.Show();
+    }
+
+    private void OnSoftLimitWarningDismissed()
+    {
+        _softLimitWarning?.ForceClose();
+        _softLimitWarning = null;
     }
 
     private void OnDomMessagePopupRequested(string message) =>

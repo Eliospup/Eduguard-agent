@@ -7,9 +7,17 @@ internal enum DesktopWidgetVisual
     LockedShield,
 }
 
+internal enum MascotKind
+{
+    Guardi,
+    TrustedSubBackpack,
+    RestrictedSubLock,
+}
+
 internal sealed class ModeUiPresentation
 {
     public bool ShowMascot { get; init; } = true;
+    public MascotKind Mascot { get; init; } = MascotKind.Guardi;
     public bool ShowDesktopWidget { get; init; } = true;
     public string HeaderIconGlyph { get; init; } = "";
     public string WidgetLabel { get; init; } = "";
@@ -30,14 +38,11 @@ internal sealed class ModeUiPresentation
     /// <summary>Trusted Sub — secure focus console: dark HUD, neon teal, tech/sci-fi but reassuring.</summary>
     public static ModeUiPresentation Study { get; } = new()
     {
-        ShowMascot = false,
+        ShowMascot = true,
+        Mascot = MascotKind.TrustedSubBackpack,
         ShowDesktopWidget = true,
         WidgetLabel = "Study",
         WidgetVisual = DesktopWidgetVisual.SoberShield,
-        WidgetWidth = 64,
-        WidgetHeight = 100,
-        WidgetIconWidth = 52,
-        WidgetIconHeight = 60,
         FontFamily = "pack://application:,,,/EduGuardAgent;component/Fonts/#Chakra Petch, Segoe UI, sans-serif",
         EyebrowFontFamily = "pack://application:,,,/EduGuardAgent;component/Fonts/#Share Tech Mono, Consolas, monospace",
         CardCornerRadius = 26,
@@ -49,6 +54,7 @@ internal sealed class ModeUiPresentation
     public static ModeUiPresentation Playful { get; } = new()
     {
         ShowMascot = true,
+        Mascot = MascotKind.Guardi,
         ShowDesktopWidget = true,
         WidgetVisual = DesktopWidgetVisual.GuardiMascot,
         FontFamily = "Candara, Segoe UI, sans-serif",
@@ -57,10 +63,11 @@ internal sealed class ModeUiPresentation
         WindowCornerRadius = 26,
     };
 
-    /// <summary>Restricted Sub — playful Guardi + visible lock/security chrome.</summary>
+    /// <summary>Restricted Sub — amber containment: dark warm lockdown, smiling-lock mascot.</summary>
     public static ModeUiPresentation SecurePlayful { get; } = new()
     {
         ShowMascot = true,
+        Mascot = MascotKind.RestrictedSubLock,
         ShowDesktopWidget = true,
         WidgetLabel = "Guardi",
         WidgetVisual = DesktopWidgetVisual.LockedShield,
@@ -83,4 +90,21 @@ internal static class UiPresentationState
     public static ModeUiPresentation Current { get; private set; } = ModeUiPresentation.Playful;
 
     public static void Apply(ModeUiPresentation presentation) => Current = presentation;
+
+    public static void ApplyMascotVisibility(
+        System.Windows.UIElement guardiMascot,
+        System.Windows.UIElement trustedSubMascot,
+        System.Windows.UIElement restrictedSubMascot)
+    {
+        var show = Current.ShowMascot;
+        guardiMascot.Visibility = show && Current.Mascot == MascotKind.Guardi
+            ? System.Windows.Visibility.Visible
+            : System.Windows.Visibility.Collapsed;
+        trustedSubMascot.Visibility = show && Current.Mascot == MascotKind.TrustedSubBackpack
+            ? System.Windows.Visibility.Visible
+            : System.Windows.Visibility.Collapsed;
+        restrictedSubMascot.Visibility = show && Current.Mascot == MascotKind.RestrictedSubLock
+            ? System.Windows.Visibility.Visible
+            : System.Windows.Visibility.Collapsed;
+    }
 }

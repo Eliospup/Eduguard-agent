@@ -30,10 +30,11 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <views:GuardiMascot Width="48"
-                                 Height="54"
-                                 Margin="0,0,12,0"
-                                 VerticalAlignment="Center" />
+            <Grid Margin="0,0,12,0" VerticalAlignment="Center">
+                <views:GuardiMascot x:Name="Mascot" Width="64" Height="72" />
+                <views:TrustedSubMascot x:Name="TrustedSubMascotIcon" Width="64" Height="72" />
+                <views:RestrictedSubMascot x:Name="RestrictedSubMascotIcon" Width="64" Height="72" />
+            </Grid>
 
             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                 <TextBlock x:Name="TitleText"

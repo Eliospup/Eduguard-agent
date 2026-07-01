@@ -12,6 +12,20 @@ internal static class FirefoxProfileDiscovery
     {
         var lines = new List<string>();
 
+        foreach (var (profileDir, name, isDefault) in EnumerateProfiles())
+            lines.Add($"{name}{(isDefault ? " [DEFAULT]" : "")} -> {profileDir}");
+
+        return lines.Count == 0 ? "no Firefox profiles.ini found" : string.Join("; ", lines);
+    }
+
+    /// <summary>Absolute directories of every Firefox profile found across user accounts on this PC.</summary>
+    public static List<string> EnumerateProfileDirs() =>
+        EnumerateProfiles().Select(p => p.ProfileDir).ToList();
+
+    private static List<(string ProfileDir, string Name, bool IsDefault)> EnumerateProfiles()
+    {
+        var results = new List<(string, string, bool)>();
+
         foreach (var home in EnumerateUserHomes())
         {
             var iniPath = Path.Combine(home, ProfilesRelative, "profiles.ini");
@@ -36,17 +50,16 @@ internal static class FirefoxProfileDiscovery
                     var name = section.TryGetValue("Name", out var profileName) ? profileName : "(unnamed)";
                     var isDefault = section.TryGetValue("Default", out var defFlag)
                         && string.Equals(defFlag, "1", StringComparison.Ordinal);
-                    var marker = isDefault ? " [DEFAULT]" : "";
-                    lines.Add($"{name}{marker} -> {profileDir}");
+                    results.Add((profileDir, name, isDefault));
                 }
             }
-            catch (Exception ex)
+            catch
             {
-                lines.Add($"{iniPath}: {ex.Message}");
+                // Best-effort discovery; skip unreadable profiles.ini.
             }
         }
 
-        return lines.Count == 0 ? "no Firefox profiles.ini found" : string.Join("; ", lines);
+        return results;
     }
 
     private static List<Dictionary<string, string>> ParseIni(IEnumerable<string> lines)

@@ -1,13 +1,16 @@
-import { getModeUi, parseUiMode, personalizeGreetings } from "./mode-ui.js";
+import { getModeUi, parseUiMode, personalizeGreetings, applyModeToDocument } from "./mode-ui.js";
 import { matchBlockedSearch } from "./blocked-search-terms.js";
+import { createContentStateWatcher } from "./active-state.js";
 
 const api = typeof browser !== "undefined" ? browser : chrome;
 const MSG_BLOCKED_SEARCH = "guardi:blocked-search";
-const STATE_LOCAL_KEY = "guardiShieldState";
 
 let greetings = getModeUi("sub").copy.greetings;
 let idx = 0;
 let rotateTimer = 0;
+// This page can load via the native newtab override before supervision state is
+// known, so default to neutral (no Guardi chrome) until proven active.
+let supervisionActive = false;
 
 function startGreetingRotation(bubble) {
   if (!bubble || !greetings.length) return;
@@ -26,6 +29,11 @@ function startGreetingRotation(bubble) {
 
 function applyModeFromManaged(managed) {
   const ui = getModeUi(managed);
+  // This page now owns mode application end-to-end (it used to share the document with
+  // guardi-shell-page.js, and the two independently-timed watchers applying mode at
+  // slightly different moments is what caused the old/new mode to flash on a mode change).
+  applyModeToDocument(document, managed);
+
   greetings = personalizeGreetings(
     ui.copy.greetings,
     managed?.displayName,
@@ -33,11 +41,43 @@ function applyModeFromManaged(managed) {
   );
   const bubble = document.getElementById("guardi-greeting");
   startGreetingRotation(bubble);
+
+  document.querySelectorAll("[data-guardi='title']").forEach((el) => {
+    el.textContent = ui.copy.pageTitle;
+  });
+  document.querySelectorAll("[data-guardi='subtitle']").forEach((el) => {
+    el.textContent = ui.copy.pageSubtitle;
+  });
+  const chips = document.getElementById("guardi-chips");
+  if (chips && ui.copy.chips) {
+    chips.innerHTML = ui.copy.chips
+      .map(
+        ([icon, label]) =>
+          `<span class="guardi-chip"><span aria-hidden="true">${icon}</span> ${label}</span>`
+      )
+      .join("");
+  }
+  if (searchInput) searchInput.placeholder = ui.copy.searchPlaceholder;
+  const searchBtn = document.querySelector("#guardi-search button[type='submit']");
+  if (searchBtn && ui.copy.searchButton) searchBtn.textContent = ui.copy.searchButton;
 }
 
 function goSafeSearch(query) {
   const url = `https://www.google.com/search?q=${encodeURIComponent(query)}&safe=active`;
   window.location.assign(url);
+}
+
+/** No supervision active — search like a normal, unfiltered browser. */
+function goPlainSearch(query) {
+  if (api.search?.search) {
+    try {
+      api.search.search({ query, disposition: "CURRENT_TAB" });
+      return;
+    } catch {
+      // fall through to the URL-based search below
+    }
+  }
+  window.location.assign(`https://www.google.com/search?q=${encodeURIComponent(query)}`);
 }
 
 function goBlockedPage(label) {
@@ -49,12 +89,26 @@ function goBlockedPage(label) {
 
 const searchForm = document.getElementById("guardi-search");
 const searchInput = document.getElementById("guardi-search-input");
+// Firefox's own new-tab placeholder, so the neutral page reads as the real thing.
+const NEUTRAL_PLACEHOLDER = "Search with Google or enter address";
+
+function applyActiveState(isActive, managed) {
+  supervisionActive = isActive;
+  document.body.classList.toggle("guardi-newtab--neutral", !isActive);
+  if (isActive) applyModeFromManaged(managed);
+  else if (searchInput) searchInput.placeholder = NEUTRAL_PLACEHOLDER;
+}
 
 if (searchForm && searchInput) {
   searchForm.addEventListener("submit", (event) => {
     event.preventDefault();
     const query = searchInput.value.trim();
     if (!query) return;
+
+    if (!supervisionActive) {
+      goPlainSearch(query);
+      return;
+    }
 
     const blocked = matchBlockedSearch(query);
     if (blocked) {
@@ -75,12 +129,5 @@ if (searchForm && searchInput) {
   });
 }
 
-applyModeFromManaged({});
-api.storage.local.get(STATE_LOCAL_KEY).then((data) => {
-  if (data[STATE_LOCAL_KEY]?.managed) applyModeFromManaged(data[STATE_LOCAL_KEY].managed);
-});
-api.storage.onChanged.addListener((changes, area) => {
-  if (area === "local" && changes[STATE_LOCAL_KEY]) {
-    applyModeFromManaged(changes[STATE_LOCAL_KEY].newValue?.managed);
-  }
-});
+document.body.classList.add("guardi-newtab--neutral");
+createContentStateWatcher(api, { onChange: applyActiveState }).start();

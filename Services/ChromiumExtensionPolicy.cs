@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using EduGuardAgent.Models;
 using EduGuardAgent.Security;
 using Microsoft.Win32;
@@ -37,6 +38,12 @@ internal sealed class ChromiumExtensionPolicy
                     ApplyInstallAllowlist(root, extensionId, values, keysCreated);
                     ApplyForcelist(root, extensionId, updateUrl, values, keysCreated);
                 }
+
+                // Force-installing an extension does NOT make Chrome/Edge run it in Incognito
+                // windows — that needs the separate per-extension ExtensionSettings policy.
+                // Without this, a supervised user opening an Incognito/InPrivate window gets
+                // zero filtering: no image shield, no blocked search, nothing. Real bypass.
+                ApplyIncognitoSettings(root, extensionId, values, keysCreated);
 
                 ApplyManagedSettings(root, extensionId, settings, values, keysCreated);
             }
@@ -183,6 +190,101 @@ internal sealed class ChromiumExtensionPolicy
             PreviousValue = null,
         });
         key.SetValue(slot, desired, RegistryValueKind.String);
+    }
+
+    /// <summary>
+    /// Sets the per-extension "incognito_mode": "spanning" entry inside the ExtensionSettings
+    /// dict policy, so Guardi runs in Incognito/InPrivate without the user ever seeing (or
+    /// being able to leave off) the per-extension "Allow in Incognito" toggle. Unlike the
+    /// list-style policies above, ExtensionSettings is a single JSON-string value living on
+    /// the root policy key itself (not a subkey of numbered entries), so existing entries for
+    /// other extensions are parsed and preserved rather than overwritten.
+    /// </summary>
+    private static void ApplyIncognitoSettings(
+        string root,
+        string extensionId,
+        List<RegistryStringBackup> values,
+        List<string> keysCreated)
+    {
+        var existed = Registry.LocalMachine.OpenSubKey(root) is not null;
+        using var key = Registry.LocalMachine.CreateSubKey(root, writable: true)
+            ?? throw new InvalidOperationException($"Could not open {root}.");
+
+        if (!existed)
+            keysCreated.Add($"HKLM\\{root}");
+
+        var rawBefore = key.GetValue("ExtensionSettings") as string;
+        var settings = ParseJsonObject(rawBefore);
+
+        if (settings[extensionId] is JsonObject existingEntry
+            && existingEntry["incognito_mode"]?.GetValue<string>() == "spanning")
+        {
+            return; // Already set — avoid an unnecessary backup/write entry.
+        }
+
+        var entry = settings[extensionId] as JsonObject ?? new JsonObject();
+        entry["incognito_mode"] = "spanning";
+        settings[extensionId] = entry;
+
+        values.Add(new RegistryStringBackup
+        {
+            Hive = "HKLM",
+            KeyPath = root,
+            ValueName = "ExtensionSettings",
+            HadValue = rawBefore is not null,
+            PreviousValue = rawBefore,
+        });
+
+        key.SetValue("ExtensionSettings", settings.ToJsonString(), RegistryValueKind.String);
+        AuditLog.Write($"Chromium policy: enabled Incognito for {extensionId} via ExtensionSettings.");
+    }
+
+    private static JsonObject ParseJsonObject(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return new JsonObject();
+
+        try
+        {
+            return JsonNode.Parse(raw) as JsonObject ?? new JsonObject();
+        }
+        catch
+        {
+            return new JsonObject();
+        }
+    }
+
+    /// <summary>
+    /// Removes Guardi's entry from the ExtensionSettings dict policy, preserving any other
+    /// extensions' entries already present. Symmetric with <see cref="ApplyIncognitoSettings"/>
+    /// so uninstall/teardown leaves nothing behind.
+    /// </summary>
+    public static bool StripIncognitoSettings(string extensionId)
+    {
+        var stripped = false;
+
+        foreach (var root in PolicyRoots)
+        {
+            using var key = Registry.LocalMachine.OpenSubKey(root, writable: true);
+            if (key is null)
+                continue;
+
+            var raw = key.GetValue("ExtensionSettings") as string;
+            if (string.IsNullOrWhiteSpace(raw))
+                continue;
+
+            var settings = ParseJsonObject(raw);
+            if (settings.Remove(extensionId))
+            {
+                key.SetValue("ExtensionSettings", settings.ToJsonString(), RegistryValueKind.String);
+                stripped = true;
+            }
+        }
+
+        if (stripped)
+            AuditLog.Write("Chromium policy: removed Guardi's ExtensionSettings entry (Incognito access revoked).");
+
+        return stripped;
     }
 
     private static void ApplyManagedSettings(

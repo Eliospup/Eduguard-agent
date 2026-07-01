@@ -39,28 +39,23 @@ public partial class GuardiWidgetWindow : Window
         _baseWidgetWidth = presentation.WidgetWidth;
         _baseWidgetHeight = presentation.WidgetHeight;
 
-        Mascot.Visibility = Visibility.Collapsed;
-        SoberShield.Visibility = Visibility.Collapsed;
-        LockedShield.Visibility = Visibility.Collapsed;
-
+        // Visibility is driven declaratively by IsSubMode/IsTrustedSubMode/IsRestrictedSubMode
+        // bindings in XAML so it stays correct across mode changes without a manual re-sync here.
         switch (presentation.WidgetVisual)
         {
             case DesktopWidgetVisual.SoberShield:
                 SoberShield.Width = presentation.WidgetIconWidth;
                 SoberShield.Height = presentation.WidgetIconHeight;
-                SoberShield.Visibility = Visibility.Visible;
                 break;
 
             case DesktopWidgetVisual.LockedShield:
                 LockedShield.Width = presentation.WidgetIconWidth;
                 LockedShield.Height = presentation.WidgetIconHeight;
-                LockedShield.Visibility = Visibility.Visible;
                 break;
 
             default:
                 Mascot.Width = presentation.WidgetIconWidth;
                 Mascot.Height = presentation.WidgetIconHeight;
-                Mascot.Visibility = Visibility.Visible;
                 break;
         }
 

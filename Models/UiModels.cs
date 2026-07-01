@@ -120,4 +120,7 @@ internal sealed class InfractionItem
     public required string Label { get; init; }
     public required string Detail { get; init; }
     public required string Time { get; init; }
+    public int TrustPointsLost { get; init; }
+    public bool ShowTrustPointsLost => TrustPointsLost > 0;
+    public string TrustPointsLostText => $"-{TrustPointsLost} trust";
 }

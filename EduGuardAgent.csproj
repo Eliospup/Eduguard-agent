@@ -26,6 +26,8 @@
 
   <ItemGroup>
     <Content Include="extension\store-config.json" Link="extension\store-config.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Mascot PNG illustrations: copied to output so artwork can be added/iterated without a code change. -->
+    <Content Include="Assets\Mascots\**\*.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

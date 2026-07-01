@@ -26,7 +26,7 @@ public partial class GuardiTrayMenuWindow : Window
         QuitLabel.Text = UiCopy.TrayQuitMenuItem;
 
         var presentation = UiPresentationState.Current;
-        Mascot.Visibility = presentation.ShowMascot ? Visibility.Visible : Visibility.Collapsed;
+        UiPresentationState.ApplyMascotVisibility(Mascot, TrustedSubMascotIcon, RestrictedSubMascotIcon);
         ShieldHost.Visibility = presentation.ShowMascot ? Visibility.Collapsed : Visibility.Visible;
     }
 

@@ -185,6 +185,16 @@ internal sealed class LocalSettingsCatalog
     public int PunishmentEscalationMinutes { get; set; }
     public PunishmentExtensionCatalog PunishmentExtensions { get; set; } = PunishmentExtensionCatalog.CreateDefaults();
 
+    /// <summary>Trust points regained per hour of clean, supervised time.</summary>
+    public int TrustRegenPerHour { get; set; } = 5;
+
+    public int TrustWeightVpn { get; set; } = 25;
+    public int TrustWeightBypass { get; set; } = 20;
+    public int TrustWeightBlockedApp { get; set; } = 15;
+    public int TrustWeightBlockedSearch { get; set; } = 15;
+    public int TrustWeightStudy { get; set; } = 10;
+    public int TrustWeightLimit { get; set; } = 10;
+
     public bool InfractionVpnAttempt { get; set; } = true;
     public bool InfractionBlockedAppRepeated { get; set; } = true;
     public bool InfractionBypassAttempt { get; set; } = true;
@@ -287,6 +297,51 @@ internal sealed class LocalAppTimeLimitItem : INotifyPropertyChanged
             _limitMinutes = value;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(LimitMinutes)));
         }
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+}
+
+internal sealed class LocalCustomGameItem
+{
+    public required string Exe { get; init; }
+    public required string DisplayName { get; init; }
+}
+
+internal sealed class LocalWebCategoryItem : INotifyPropertyChanged
+{
+    private bool _isBlocked;
+    private readonly Action<LocalWebCategoryItem>? _onToggled;
+
+    public LocalWebCategoryItem(Action<LocalWebCategoryItem>? onToggled = null) => _onToggled = onToggled;
+
+    public required string Key { get; init; }
+    public required string DisplayName { get; init; }
+    public required string Description { get; init; }
+    public required string Glyph { get; init; }
+
+    public bool IsBlocked
+    {
+        get => _isBlocked;
+        set
+        {
+            if (_isBlocked == value)
+                return;
+
+            _isBlocked = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsBlocked)));
+            _onToggled?.Invoke(this);
+        }
+    }
+
+    /// <summary>Sets the toggle without triggering the change callback (used during load).</summary>
+    public void SetBlockedSilent(bool value)
+    {
+        if (_isBlocked == value)
+            return;
+
+        _isBlocked = value;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsBlocked)));
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

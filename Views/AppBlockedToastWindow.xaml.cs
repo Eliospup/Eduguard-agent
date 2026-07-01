@@ -24,6 +24,7 @@ public partial class AppBlockedToastWindow : Window
         InitializeComponent();
         TitleText.Text = title;
         MessageText.Text = message;
+        UiPresentationState.ApplyMascotVisibility(Mascot, TrustedSubMascotIcon, RestrictedSubMascotIcon);
     }
 
     public void SetPersistent(bool persistent)

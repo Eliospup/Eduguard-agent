@@ -33,6 +33,13 @@ internal static class ThemeService
         SetBrush(resources, "HomeHeroAccentBrush", theme.HeroAccent);
         SetBrush(resources, "OnlineBrush", theme.Online);
         SetBrush(resources, "PageAtmosphereBrush", theme.Atmosphere);
+        SetBrush(resources, "SegmentTrackBrush", theme.ChipBackground);
+        SetBrush(resources, "SegmentBorderBrush", theme.ChipBorder);
+        SetBrush(resources, "SegmentInactiveBrush", theme.ChipBackground);
+        SetBrush(resources, "SegmentInactiveForegroundBrush", theme.Text);
+        SetBrush(resources, "SegmentActiveBrush", theme.Primary);
+        SetBrush(resources, "SegmentActiveForegroundBrush", theme.OnPrimary);
+        SetBrush(resources, "SegmentPastBrush", theme.AccentBackground);
         SetGradient(resources, "HeroGradient", theme.HeroStart, theme.HeroEnd);
         SetGradient(resources, "LockOverlayGradient", theme.LockOverlayStart, theme.LockOverlayEnd);
         SetGradient(resources, "PageGradient", theme.PageGradientStart, theme.PageGradientEnd);

@@ -8,6 +8,7 @@ import { parseUiMode } from "./mode-ui.js";
 import { installNewTabRedirect } from "./newtab-redirect.js";
 import { installSearchGuard } from "./search-guard.js";
 import { installYoutubeTimeGuard } from "./youtube-time-guard.js";
+import { installCategoryGuard } from "./category-guard.js";
 import { installExtensionHeartbeat } from "./heartbeat.js";
 
 const api = typeof browser !== "undefined" ? browser : chrome;
@@ -95,8 +96,13 @@ function forwardToOffscreen(msg) {
   return api.runtime.sendMessage({ ...msg, guardiOffscreen: true });
 }
 
-const newTabCtrl = installNewTabRedirect(api);
+// Firefox uses the native chrome_url_overrides.newtab instead (see manifest build
+// config) — it can't be toggled, but it keeps the address bar blank, which the
+// scripted redirect below cannot do. newtab.html itself renders neutral when inactive.
+const isFirefox = typeof browser !== "undefined";
+const newTabCtrl = installNewTabRedirect(api, { enabled: !isFirefox });
 const youtubeGuard = installYoutubeTimeGuard(api, () => currentManaged);
+const categoryGuard = installCategoryGuard(api, () => currentManaged);
 
 async function classify(msg) {
   if (!shieldActive) {
@@ -134,6 +140,7 @@ async function onShieldStateChange(active, managed) {
   shieldActive = active;
   currentManaged = managed || { shieldActive: active };
   youtubeGuard.onManagedChange();
+  categoryGuard.onManagedChange();
   syncGuardiChrome(api, active, parseUiMode(currentManaged));
   if (active) {
     if (!wasActive) {
@@ -159,6 +166,7 @@ const shieldWatcher = createBackgroundStateWatcher(api, {
   onChange: (active, managed) => {
     onShieldStateChange(active, managed);
     youtubeGuard.sync();
+    categoryGuard.sync();
   },
   getHeartbeatStatus: () => ({ shieldActive, modelReady }),
 });
@@ -171,8 +179,12 @@ api.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (searchGuard.handleMessage(msg, sendResponse)) return true;
 
   if (msg.type === MSG_GET_STATE) {
-    shieldWatcher.refresh().then(({ active, managed }) => sendResponse({ active, managed }));
-    return true;
+    // Serve the cached snapshot — re-fetching the agent + republishing/rebroadcasting on
+    // every page's request was the cascade that caused mode-change flashes (see
+    // createBackgroundStateWatcher's comment). The poll timer keeps this fresh enough.
+    const { active, managed, ts } = shieldWatcher.getSnapshot();
+    sendResponse({ active, managed, ts });
+    return false;
   }
 
   if (msg.type === "guardi:ping") {

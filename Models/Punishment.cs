@@ -150,12 +150,105 @@ internal static class DurationPartsPayloadExtensions
     };
 }
 
+/// <summary>The four trust zones, from most to least trusted. Drives tone + escalation.</summary>
+internal enum TrustZone
+{
+    Confidence,   // gauge high — nothing happens, just visible
+    Caution,      // gauge dipping — tone shifts, still no enforcement change
+    Hardening,    // gauge low — one targeted guard kicks in
+    Escalation,   // gauge bottomed — bump the mode floor up a level
+}
+
 /// <summary>
-/// Dom-configurable parameters for the auto-escalation punishment system.
+/// How many trust points each kind of slip costs. Bigger = more serious. The gauge starts
+/// full (100) and an infraction subtracts the matching weight.
+/// </summary>
+internal sealed class InfractionWeightSettings
+{
+    public int VpnAttempt { get; init; } = 25;
+    public int BypassAttempt { get; init; } = 20;
+    public int BlockedAppRepeated { get; init; } = 15;
+    public int BlockedSearch { get; init; } = 15;
+    public int StudyTimeViolation { get; init; } = 10;
+    public int LimitIgnored { get; init; } = 10;
+
+    public static InfractionWeightSettings Default => new();
+
+    public int For(InfractionKind kind) => Math.Clamp(kind switch
+    {
+        InfractionKind.VpnAttempt => VpnAttempt,
+        InfractionKind.BypassAttempt => BypassAttempt,
+        InfractionKind.BlockedAppRepeated => BlockedAppRepeated,
+        InfractionKind.BlockedSearch => BlockedSearch,
+        InfractionKind.StudyTimeViolation => StudyTimeViolation,
+        InfractionKind.LimitIgnored => LimitIgnored,
+        _ => 10,
+    }, 1, 100);
+
+    public InfractionWeightSettings Merge(InfractionWeightsPayload? payload) =>
+        payload is null
+            ? this
+            : new InfractionWeightSettings
+            {
+                VpnAttempt = payload.VpnAttempt ?? VpnAttempt,
+                BypassAttempt = payload.BypassAttempt ?? BypassAttempt,
+                BlockedAppRepeated = payload.BlockedAppRepeated ?? BlockedAppRepeated,
+                BlockedSearch = payload.BlockedSearch ?? BlockedSearch,
+                StudyTimeViolation = payload.StudyTimeViolation ?? StudyTimeViolation,
+                LimitIgnored = payload.LimitIgnored ?? LimitIgnored,
+            };
+
+    public InfractionWeightSettings Sanitized() => new()
+    {
+        VpnAttempt = Math.Clamp(VpnAttempt, 1, 100),
+        BypassAttempt = Math.Clamp(BypassAttempt, 1, 100),
+        BlockedAppRepeated = Math.Clamp(BlockedAppRepeated, 1, 100),
+        BlockedSearch = Math.Clamp(BlockedSearch, 1, 100),
+        StudyTimeViolation = Math.Clamp(StudyTimeViolation, 1, 100),
+        LimitIgnored = Math.Clamp(LimitIgnored, 1, 100),
+    };
+
+    public InfractionWeightsPayload ToPayload() => new()
+    {
+        VpnAttempt = VpnAttempt,
+        BypassAttempt = BypassAttempt,
+        BlockedAppRepeated = BlockedAppRepeated,
+        BlockedSearch = BlockedSearch,
+        StudyTimeViolation = StudyTimeViolation,
+        LimitIgnored = LimitIgnored,
+    };
+}
+
+/// <summary>
+/// Dom-configurable parameters for the trust-meter discipline system.
 /// </summary>
 internal sealed class PunishmentSettings
 {
+    /// <summary>Gauge starts here and is the ceiling it regenerates back to.</summary>
+    public const int MaxTrust = 100;
+
+    /// <summary>At or below this the mode floor escalates a level. (Constant in v1.)</summary>
+    public const int EscalationThreshold = 10;
+
+    /// <summary>Below this one targeted guard activates (hardening zone). (Constant in v1.)</summary>
+    public const int HardeningThreshold = 30;
+
+    /// <summary>Below this the tone shifts to "caution" (no enforcement change). (Constant in v1.)</summary>
+    public const int CautionThreshold = 70;
+
+    /// <summary>Trust is reset here right after an escalation so it doesn't instantly re-escalate.</summary>
+    public const int ReescalateReset = 50;
+
+    /// <summary>Reaching full trust at a punished level steps the floor down and resets here.</summary>
+    public const int StepDownReset = 70;
+
     public bool Enabled { get; init; } = true;
+
+    /// <summary>Trust points regained per hour of clean, supervised time.</summary>
+    public int RegenPerHour { get; init; } = 5;
+
+    /// <summary>Per-kind trust cost of an infraction.</summary>
+    public InfractionWeightSettings InfractionWeights { get; init; } = InfractionWeightSettings.Default;
 
     /// <summary>Infractions required to escalate Trusted Sub → Sub.</summary>
     public int ThresholdTrustedToSub { get; init; } = 3;
@@ -180,6 +273,8 @@ internal sealed class PunishmentSettings
     public PunishmentSettings Sanitized() => new()
     {
         Enabled = Enabled,
+        RegenPerHour = Math.Clamp(RegenPerHour, 1, 100),
+        InfractionWeights = InfractionWeights.Sanitized(),
         ThresholdTrustedToSub = Math.Clamp(ThresholdTrustedToSub, 1, 50),
         ThresholdSubToRestricted = Math.Clamp(ThresholdSubToRestricted, 1, 50),
         EscalationHours = Math.Clamp(EscalationHours, 0, 720),
@@ -187,6 +282,36 @@ internal sealed class PunishmentSettings
         InfractionKinds = InfractionKinds,
         InfractionExtensions = InfractionExtensions,
     };
+
+    /// <summary>Which zone a gauge value falls in.</summary>
+    public static TrustZone ZoneFor(int trust)
+    {
+        if (trust <= EscalationThreshold) return TrustZone.Escalation;
+        if (trust <= HardeningThreshold) return TrustZone.Hardening;
+        if (trust <= CautionThreshold) return TrustZone.Caution;
+        return TrustZone.Confidence;
+    }
+}
+
+internal sealed class InfractionWeightsPayload
+{
+    [JsonPropertyName("vpn_attempt")]
+    public int? VpnAttempt { get; init; }
+
+    [JsonPropertyName("bypass_attempt")]
+    public int? BypassAttempt { get; init; }
+
+    [JsonPropertyName("blocked_app_repeated")]
+    public int? BlockedAppRepeated { get; init; }
+
+    [JsonPropertyName("blocked_search")]
+    public int? BlockedSearch { get; init; }
+
+    [JsonPropertyName("study_time_violation")]
+    public int? StudyTimeViolation { get; init; }
+
+    [JsonPropertyName("limit_ignored")]
+    public int? LimitIgnored { get; init; }
 }
 
 internal sealed class InfractionKindsPayload
@@ -270,6 +395,12 @@ internal sealed class PunishmentSettingsPayload
 
     [JsonPropertyName("infraction_kinds")]
     public InfractionKindsPayload? InfractionKinds { get; init; }
+
+    [JsonPropertyName("regen_per_hour")]
+    public int? RegenPerHour { get; init; }
+
+    [JsonPropertyName("infraction_weights")]
+    public InfractionWeightsPayload? InfractionWeights { get; init; }
 }
 
 internal static class InfractionKindExtensions
@@ -303,6 +434,12 @@ internal sealed class PunishmentStatePayload
 
     [JsonPropertyName("infraction_count")]
     public int InfractionCount { get; init; }
+
+    [JsonPropertyName("trust")]
+    public int Trust { get; init; }
+
+    [JsonPropertyName("trust_zone")]
+    public string? TrustZone { get; init; }
 
     [JsonPropertyName("punishment_until")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

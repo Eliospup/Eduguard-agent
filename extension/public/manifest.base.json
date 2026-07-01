@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Guardi Image Shield",
-  "version": "0.8.24",
+  "version": "0.8.40",
   "description": "Guardi's safe browser Ã¢â‚¬â€ blurs yucky pictures on-device and wraps your tabs in a cozy, protected UI.",
   "permissions": [
     "storage",
@@ -11,7 +11,8 @@
     "webRequest",
     "webRequestBlocking",
     "offscreen",
-    "theme"
+    "theme",
+    "search"
   ],
   "host_permissions": [
     "<all_urls>",
@@ -44,6 +45,28 @@
       ],
       "run_at": "document_start",
       "all_frames": false
+    },
+    {
+      "matches": [
+        "*://*.youtube.com/*",
+        "*://youtube.com/*"
+      ],
+      "js": [
+        "youtube-soft-limit.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "category-content-guard.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
     }
   ],
   "web_accessible_resources": [
@@ -51,7 +74,11 @@
       "resources": [
         "assets/*",
         "models/*",
-        "wasm/*"
+        "wasm/*",
+        "blocked-search.html",
+        "youtube-time-blocked.html",
+        "category-blocked.html",
+        "newtab.html"
       ],
       "matches": [
         "<all_urls>"

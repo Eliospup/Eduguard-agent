@@ -139,11 +139,15 @@ internal sealed class BedtimeService : IDisposable
             return;
 
         var remaining = bedtimeAt - now;
-        if (remaining <= TimeSpan.FromMinutes(5))
+
+        // Each warning fires only inside a window anchored at its threshold.
+        // The lower bound prevents stale firings after a settings change or app restart
+        // that would otherwise show e.g. "5 minutes" when only 1 minute remains.
+        if (remaining <= TimeSpan.FromMinutes(5) && remaining > TimeSpan.FromMinutes(3))
             TryWarn(BedtimeWarningKind.FiveMinutes);
-        else if (remaining <= TimeSpan.FromMinutes(30))
+        else if (remaining <= TimeSpan.FromMinutes(30) && remaining > TimeSpan.FromMinutes(25))
             TryWarn(BedtimeWarningKind.ThirtyMinutes);
-        else if (remaining <= TimeSpan.FromHours(1))
+        else if (remaining <= TimeSpan.FromHours(1) && remaining > TimeSpan.FromMinutes(55))
             TryWarn(BedtimeWarningKind.OneHour);
     }
 

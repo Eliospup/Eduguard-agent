@@ -1,11 +1,22 @@
 /** Redirect blank tabs to Guardi new-tab only while supervision is active (Chromium).
- *  Firefox keeps native about:newtab — moz-extension:// in the address bar is confusing.
- *  Do not use manifest chrome_url_overrides.newtab — it cannot be toggled off.
+ *  Firefox instead uses the native chrome_url_overrides.newtab (see esbuild.config.mjs)
+ *  so the address bar stays blank like a normal new tab — moz-extension:// URLs there
+ *  read as suspicious. That override can't be toggled at runtime, so newtab.html
+ *  renders a neutral, unbranded page itself whenever supervision is inactive.
  */
 
 import { isAgentSupervisionActive } from "./agent-bridge.js";
 
 const BLANK_NEWTAB_URLS = new Set(["about:newtab", "about:home", "about:blank"]);
+
+/**
+ * Grace window before treating a blank tab as "genuinely idle, take it over". A real
+ * navigation (link click, JS/auth redirect chain) can sit at about:blank for a few hundred
+ * ms before its target URL lands — redirecting too eagerly hijacked those clicks to
+ * Guardi's new tab instead of letting them complete. A deliberately-opened blank tab just
+ * takes a little longer to receive the Guardi page, which is barely noticeable.
+ */
+const RedirectGraceDelaysMs = [300, 800, 1500, 2500];
 
 /** Tabs navigating to a real site — never hijack. */
 const allowedNavigations = new Set();
@@ -150,7 +161,13 @@ export function installNewTabRedirect(
     }
     if (isGuardiNewTab(changeInfo.url, guardiUrl)) return;
     if (isBlankNewTab(changeInfo.url)) {
-      redirectIfBlank(tabId);
+      // Don't hijack immediately — about:blank is a normal transient state mid-navigation
+      // (window.open, client-side/auth redirects) before the real URL lands. redirectIfBlank
+      // re-checks freshness itself, so a real navigation that lands in the meantime cancels
+      // these via markAllowedNavigation.
+      for (const delay of RedirectGraceDelaysMs) {
+        setTimeout(() => redirectIfBlank(tabId), delay);
+      }
     }
   });
 
@@ -160,7 +177,7 @@ export function installNewTabRedirect(
       markAllowedNavigation(tab.id);
       return;
     }
-    for (const delay of [80, 250, 600]) {
+    for (const delay of RedirectGraceDelaysMs) {
       setTimeout(() => redirectIfBlank(tab.id), delay);
     }
   });

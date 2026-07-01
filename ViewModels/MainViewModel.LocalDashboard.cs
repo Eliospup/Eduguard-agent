@@ -25,6 +25,8 @@ internal sealed partial class MainViewModel
     public ObservableCollection<LocalModeChoiceItem> LocalModeChoices { get; } = [];
     public ObservableCollection<LocalKioskAppItem> LocalKioskApps { get; } = [];
     public ObservableCollection<LocalAppTimeLimitItem> LocalAppTimeLimits { get; } = [];
+    public ObservableCollection<LocalCustomGameItem> LocalCustomGames { get; } = [];
+    public ObservableCollection<LocalWebCategoryItem> LocalWebCategories { get; } = [];
 
     private static readonly (string Key, string Label)[] WeekDays =
     [
@@ -101,6 +103,10 @@ internal sealed partial class MainViewModel
     public RelayCommand CopyImageShieldDiagnosticCommand { get; private set; } = null!;
     public RelayCommand AddLocalAppTimeLimitCommand { get; private set; } = null!;
     public RelayCommand<LocalAppTimeLimitItem> RemoveLocalAppTimeLimitCommand { get; private set; } = null!;
+    public RelayCommand BrowseLocalCustomGameCommand { get; private set; } = null!;
+    public RelayCommand AddLocalCustomGameCommand { get; private set; } = null!;
+    public RelayCommand<LocalCustomGameItem> RemoveLocalCustomGameCommand { get; private set; } = null!;
+    public RelayCommand RemoveLocalExitPinCommand { get; private set; } = null!;
 
     public bool LocalActiveModeIsDirty =>
         !string.Equals(_localSettings.ActiveModeSlug, LocalActiveModeSlug, StringComparison.OrdinalIgnoreCase);
@@ -155,6 +161,24 @@ internal sealed partial class MainViewModel
             RemoveLocalAppTimeLimit,
             _ => IsLocalMode);
 
+        BrowseLocalCustomGameCommand = new RelayCommand(
+            BrowseLocalCustomGame,
+            () => IsLocalMode);
+
+        AddLocalCustomGameCommand = new RelayCommand(
+            AddLocalCustomGame,
+            () => IsLocalMode
+                && GamingGameRegistry.IsValidExe(LocalNewGameExe)
+                && !string.IsNullOrWhiteSpace(LocalNewGameName));
+
+        RemoveLocalCustomGameCommand = new RelayCommand<LocalCustomGameItem>(
+            RemoveLocalCustomGame,
+            _ => IsLocalMode);
+
+        RemoveLocalExitPinCommand = new RelayCommand(
+            RemoveLocalExitPin,
+            () => IsLocalMode && LocalExitPinIsSet);
+
         foreach (var mode in AgentModeRegistry.All)
         {
             LocalModeChoices.Add(new LocalModeChoiceItem
@@ -204,6 +228,8 @@ internal sealed partial class MainViewModel
         OnPropertyChanged(nameof(LevelSubtitle));
         OnPropertyChanged(nameof(HeaderCenterTitle));
         OnPropertyChanged(nameof(HeaderCenterSubtitle));
+        OnPropertyChanged(nameof(HomeGreetingTitle));
+        OnPropertyChanged(nameof(HomeGreetingSubtitle));
         OnPropertyChanged(nameof(InfractionCount));
         SyncKioskState();
         RefreshDisciplineStanding();
@@ -234,6 +260,8 @@ internal sealed partial class MainViewModel
             OnPropertyChanged(nameof(LevelSubtitle));
             OnPropertyChanged(nameof(HeaderCenterTitle));
             OnPropertyChanged(nameof(HeaderCenterSubtitle));
+            OnPropertyChanged(nameof(HomeGreetingTitle));
+            OnPropertyChanged(nameof(HomeGreetingSubtitle));
             OnScreenTimeElapsed();
             RefreshRestrictions();
             AddLog($"Active supervision mode set to {AgentModeRegistry.Get(LocalActiveModeSlug).DisplayName}.");
@@ -298,6 +326,30 @@ internal sealed partial class MainViewModel
     }
 
     private int _localGamingLimitMinutes = 60;
+
+    public string LocalNewGameExe
+    {
+        get => _localNewGameExe;
+        set
+        {
+            if (SetField(ref _localNewGameExe, value))
+                AddLocalCustomGameCommand.RaiseCanExecuteChanged();
+        }
+    }
+
+    private string _localNewGameExe = string.Empty;
+
+    public string LocalNewGameName
+    {
+        get => _localNewGameName;
+        set
+        {
+            if (SetField(ref _localNewGameName, value))
+                AddLocalCustomGameCommand.RaiseCanExecuteChanged();
+        }
+    }
+
+    private string _localNewGameName = string.Empty;
 
     public string LocalAppLimitExe
     {
@@ -482,6 +534,18 @@ internal sealed partial class MainViewModel
         set => SetField(ref _localExitPin, value);
     }
 
+    /// <summary>True when an exit PIN is currently set. The PIN itself is never shown back.</summary>
+    public bool LocalExitPinIsSet => _exitPin.IsRequired;
+
+    /// <summary>The Sub's nickname used in greetings ("Hi, {name}!"). Editable, unlike the PIN.</summary>
+    public string LocalSubDisplayName
+    {
+        get => _localSubDisplayName;
+        set => SetField(ref _localSubDisplayName, value);
+    }
+
+    public string LocalExitPinStatusText => LocalExitPinIsSet ? "A PIN is set" : "No PIN set";
+
     public int LocalScreenshotInterval
     {
         get => _localScreenshotInterval;
@@ -582,6 +646,48 @@ internal sealed partial class MainViewModel
     {
         get => _localPunishmentExtensions.BlockedSearchMinutes;
         set => SetExtensionMinutes(v => _localPunishmentExtensions.BlockedSearchMinutes = v, value, nameof(LocalBlockedSearchExtensionMinutes));
+    }
+
+    public int LocalTrustRegenPerHour
+    {
+        get => _localTrustRegenPerHour;
+        set => SetField(ref _localTrustRegenPerHour, Math.Clamp(value, 1, 100));
+    }
+
+    public int LocalTrustWeightVpn
+    {
+        get => _localTrustWeightVpn;
+        set => SetField(ref _localTrustWeightVpn, Math.Clamp(value, 1, 100));
+    }
+
+    public int LocalTrustWeightBypass
+    {
+        get => _localTrustWeightBypass;
+        set => SetField(ref _localTrustWeightBypass, Math.Clamp(value, 1, 100));
+    }
+
+    public int LocalTrustWeightBlockedApp
+    {
+        get => _localTrustWeightBlockedApp;
+        set => SetField(ref _localTrustWeightBlockedApp, Math.Clamp(value, 1, 100));
+    }
+
+    public int LocalTrustWeightBlockedSearch
+    {
+        get => _localTrustWeightBlockedSearch;
+        set => SetField(ref _localTrustWeightBlockedSearch, Math.Clamp(value, 1, 100));
+    }
+
+    public int LocalTrustWeightStudy
+    {
+        get => _localTrustWeightStudy;
+        set => SetField(ref _localTrustWeightStudy, Math.Clamp(value, 1, 100));
+    }
+
+    public int LocalTrustWeightLimit
+    {
+        get => _localTrustWeightLimit;
+        set => SetField(ref _localTrustWeightLimit, Math.Clamp(value, 1, 100));
     }
 
     private void SetExtensionHours(Action<int> setter, int value, string propertyName)
@@ -765,7 +871,8 @@ internal sealed partial class MainViewModel
             or "active supervision mode"
             or "block site"
             or "block app"
-            or "clear punishment";
+            or "clear punishment"
+            or "web category filter";
 
     private void ClearLocalSettingsPinSession() => _localSettingsPinUnlocked = false;
 
@@ -836,6 +943,23 @@ internal sealed partial class MainViewModel
         LocalLockScreenCommand.RaiseCanExecuteChanged();
         SaveLocalActiveModeCommand.RaiseCanExecuteChanged();
         ToggleLocalModeCommand.RaiseCanExecuteChanged();
+        // These RelayCommands have no CommandManager.RequerySuggested hookup, so a Button
+        // bound to one before local mode was ever enabled (the whole panel is always in the
+        // visual tree — see MainWindow.xaml's LocalSettingsPanel, just Visibility-toggled)
+        // stays stuck at its first-evaluated CanExecute forever unless raised explicitly here.
+        SelectLocalEditingModeCommand.RaiseCanExecuteChanged();
+        SelectLocalActiveModeCommand.RaiseCanExecuteChanged();
+        ClearLocalPunishmentCommand.RaiseCanExecuteChanged();
+        RefreshLocalKioskAppsCommand.RaiseCanExecuteChanged();
+        AddLocalKioskAppCommand.RaiseCanExecuteChanged();
+        BrowseLocalKioskAppCommand.RaiseCanExecuteChanged();
+        CopyImageShieldDiagnosticCommand.RaiseCanExecuteChanged();
+        AddLocalAppTimeLimitCommand.RaiseCanExecuteChanged();
+        RemoveLocalAppTimeLimitCommand.RaiseCanExecuteChanged();
+        BrowseLocalCustomGameCommand.RaiseCanExecuteChanged();
+        AddLocalCustomGameCommand.RaiseCanExecuteChanged();
+        RemoveLocalCustomGameCommand.RaiseCanExecuteChanged();
+        RemoveLocalExitPinCommand.RaiseCanExecuteChanged();
 
         if (IsLocalMode)
         {
@@ -864,6 +988,7 @@ internal sealed partial class MainViewModel
     private void BootstrapLocalSupervision()
     {
         EnsureAutoStartDefaultWhenSupervised();
+        Task.Run(Security.SecurityActivation.EnsureActive);
         _screenTime.Start();
         _gaming.Start();
         _appTimeLimits.Start();
@@ -905,6 +1030,10 @@ internal sealed partial class MainViewModel
         LoadSectionFormFromCatalog();
         if (_localSectionKey == "kiosk")
             RefreshLocalKioskApps();
+        if (_localSectionKey == "playtime")
+            LoadLocalCustomGames();
+        if (_localSectionKey == "blocklist")
+            LoadLocalWebCategories();
         CurrentPage = DashboardPage.LocalSection;
         NotifyLocalPageChanged();
     }
@@ -945,6 +1074,8 @@ internal sealed partial class MainViewModel
         OnPropertyChanged(nameof(IsLocalScreenshotsSection));
         OnPropertyChanged(nameof(HeaderCenterTitle));
         OnPropertyChanged(nameof(HeaderCenterSubtitle));
+        OnPropertyChanged(nameof(HomeGreetingTitle));
+        OnPropertyChanged(nameof(HomeGreetingSubtitle));
         OnPropertyChanged(nameof(IsSettingsPage));
         NavigateBackCommand.RaiseCanExecuteChanged();
     }
@@ -998,7 +1129,12 @@ internal sealed partial class MainViewModel
         var catalog = _localSettings.Catalog;
         LocalBlueLightFilterEnabled = catalog.BlueLightFilterEnabled;
         LocalImageShieldEnabled = catalog.ImageShieldEnabled;
-        LocalExitPin = catalog.ExitPin ?? string.Empty;
+        // Never repopulate the PIN — the field is "set/change" only. Blank means "keep".
+        LocalExitPin = string.Empty;
+        RaiseExitPinState();
+        // Unlike the PIN, the nickname isn't a secret — show the current value so it's
+        // editable in place.
+        LocalSubDisplayName = _subProfile.DisplayName ?? string.Empty;
         LocalWidgetRemindersEnabled = catalog.DesktopWidgetRemindersEnabled;
         LocalWidgetReminderFrequencyMinutes = Math.Clamp(catalog.DesktopWidgetReminderFrequencyMinutes, 1, 180);
         LocalScreenshotInterval = catalog.ScreenshotIntervalMinutes;
@@ -1018,6 +1154,13 @@ internal sealed partial class MainViewModel
         LocalInfractionLimitEnabled = catalog.InfractionLimitIgnored;
         LocalInfractionStudyEnabled = catalog.InfractionStudyTimeViolation;
         LocalInfractionBlockedSearchEnabled = catalog.InfractionBlockedSearch;
+        LocalTrustRegenPerHour = catalog.TrustRegenPerHour;
+        LocalTrustWeightVpn = catalog.TrustWeightVpn;
+        LocalTrustWeightBypass = catalog.TrustWeightBypass;
+        LocalTrustWeightBlockedApp = catalog.TrustWeightBlockedApp;
+        LocalTrustWeightBlockedSearch = catalog.TrustWeightBlockedSearch;
+        LocalTrustWeightStudy = catalog.TrustWeightStudy;
+        LocalTrustWeightLimit = catalog.TrustWeightLimit;
         LoadLocalImageShieldFields();
         OnPropertyChanged(nameof(LocalVpnExtensionHours));
         OnPropertyChanged(nameof(LocalVpnExtensionMinutes));
@@ -1121,12 +1264,7 @@ internal sealed partial class MainViewModel
                 break;
 
             case "kiosk":
-                var approvedApps = LocalKioskApps
-                    .Where(app => app.IsApproved && KioskAppRegistry.IsValidPath(app.Path) && app.IsInstalled)
-                    .Select(app => new KioskApp(app.Name, app.Path, app.Args, app.Icon))
-                    .ToList();
-                _kioskApps.SetApprovedApps(approvedApps);
-                RefreshLocalKioskApps();
+                PersistKioskApprovals();
                 AddLog(LocalModeCopy.KioskAppsSavedLog);
                 return;
 
@@ -1143,6 +1281,13 @@ internal sealed partial class MainViewModel
                 _localSettings.Catalog.InfractionLimitIgnored = LocalInfractionLimitEnabled;
                 _localSettings.Catalog.InfractionStudyTimeViolation = LocalInfractionStudyEnabled;
                 _localSettings.Catalog.InfractionBlockedSearch = LocalInfractionBlockedSearchEnabled;
+                _localSettings.Catalog.TrustRegenPerHour = LocalTrustRegenPerHour;
+                _localSettings.Catalog.TrustWeightVpn = LocalTrustWeightVpn;
+                _localSettings.Catalog.TrustWeightBypass = LocalTrustWeightBypass;
+                _localSettings.Catalog.TrustWeightBlockedApp = LocalTrustWeightBlockedApp;
+                _localSettings.Catalog.TrustWeightBlockedSearch = LocalTrustWeightBlockedSearch;
+                _localSettings.Catalog.TrustWeightStudy = LocalTrustWeightStudy;
+                _localSettings.Catalog.TrustWeightLimit = LocalTrustWeightLimit;
                 _localSettings.SaveCatalog();
                 _localSettings.ApplyGlobalSettings();
                 break;
@@ -1174,21 +1319,27 @@ internal sealed partial class MainViewModel
                 break;
 
             case "security":
-                if (string.IsNullOrWhiteSpace(LocalExitPin))
-                {
-                    if (_localSettings.Catalog.ExitPin is not null)
-                        _localSettings.Catalog.ExitPin = string.Empty;
-                }
-                else
+                // Blank = keep the current PIN (the field is never pre-filled). To remove a
+                // PIN the parent uses the explicit Remove command.
+                if (!string.IsNullOrWhiteSpace(LocalExitPin))
                 {
                     var pin = LocalExitPin.Trim();
                     if (!ExitPinService.IsValidFormat(pin))
                     {
-                        AddLog("Exit PIN must be 4â€“8 digits.");
+                        AddLog("Exit PIN must be 6â€“8 digits.");
                         return;
                     }
 
-                    _localSettings.Catalog.ExitPin = pin;
+                    _exitPin.SetPin(pin);
+                    LocalExitPin = string.Empty;
+                    RaiseExitPinState();
+                }
+
+                var nickname = LocalSubDisplayName?.Trim();
+                if (!string.IsNullOrWhiteSpace(nickname) && !_subProfile.TrySetDisplayName(nickname))
+                {
+                    AddLog("Nickname must include at least one letter or number.");
+                    return;
                 }
 
                 _localSettings.Catalog.DesktopWidgetRemindersEnabled = LocalWidgetRemindersEnabled;
@@ -1202,7 +1353,7 @@ internal sealed partial class MainViewModel
             case "screenshots":
                 _localSettings.Catalog.ScreenshotIntervalMinutes = Math.Max(1, LocalScreenshotInterval);
                 _localSettings.Persist();
-                AddLog("Screenshot interval saved â€” restart the agent to apply.");
+                AddLog("Screenshot interval saved — restart the agent to apply.");
                 return;
         }
 
@@ -1237,6 +1388,36 @@ internal sealed partial class MainViewModel
         _localSettings.SaveRulesFor(LocalEditingModeSlug, rules);
     }
 
+    /// <summary>
+    /// Wires a kiosk app row's approve toggle to persist immediately — there is no separate
+    /// Save button for this section, flipping the switch is the commit. Deferred via PostOnUi
+    /// so the collection rebuild inside PersistKioskApprovals doesn't mutate LocalKioskApps
+    /// while still inside the CheckBox's own click/binding dispatch.
+    /// </summary>
+    private LocalKioskAppItem TrackKioskAppItem(LocalKioskAppItem item)
+    {
+        item.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(LocalKioskAppItem.IsApproved))
+                PostOnUi(PersistKioskApprovals);
+        };
+        return item;
+    }
+
+    /// <summary>
+    /// Commits the current checked state of <see cref="LocalKioskApps"/> to the registry that
+    /// the kiosk launcher actually reads, then re-syncs the list.
+    /// </summary>
+    private void PersistKioskApprovals()
+    {
+        var approvedApps = LocalKioskApps
+            .Where(app => app.IsApproved && KioskAppRegistry.IsValidPath(app.Path) && app.IsInstalled)
+            .Select(app => new KioskApp(app.Name, app.Path, app.Args, app.Icon))
+            .ToList();
+        _kioskApps.SetApprovedApps(approvedApps);
+        RefreshLocalKioskApps();
+    }
+
     private void RefreshLocalKioskApps()
     {
         _kioskApps.MergeNewlyDiscoveredDefaults();
@@ -1253,7 +1434,7 @@ internal sealed partial class MainViewModel
         {
             var normalized = KioskApp.NormalizePath(app.Path);
             seenPaths.Add(normalized);
-            items.Add(new LocalKioskAppItem
+            items.Add(TrackKioskAppItem(new LocalKioskAppItem
             {
                 CatalogId = app.CatalogId,
                 Name = app.Name,
@@ -1262,7 +1443,7 @@ internal sealed partial class MainViewModel
                 Icon = app.Icon,
                 Args = app.Args,
                 IsApproved = approvedPaths.Contains(normalized),
-            });
+            }));
         }
 
         foreach (var app in _kioskApps.Apps)
@@ -1271,15 +1452,15 @@ internal sealed partial class MainViewModel
                 continue;
 
             seenPaths.Add(app.NormalizedPath);
-            items.Add(new LocalKioskAppItem
+            items.Add(TrackKioskAppItem(new LocalKioskAppItem
             {
                 Name = app.Name,
                 Path = app.Path,
                 IconImage = ExecutableIconService.GetForPath(app.Path),
-                Icon = string.IsNullOrWhiteSpace(app.Icon) ? "ðŸ“¦" : app.Icon!,
+                Icon = string.IsNullOrWhiteSpace(app.Icon) ? "\U0001F4E6" : app.Icon!,
                 Args = app.Args,
                 IsApproved = true,
-            });
+            }));
         }
 
         foreach (var manual in LocalKioskApps.Where(item => string.IsNullOrEmpty(item.CatalogId)))
@@ -1292,7 +1473,7 @@ internal sealed partial class MainViewModel
                 continue;
 
             seenPaths.Add(normalized);
-            items.Add(new LocalKioskAppItem
+            items.Add(TrackKioskAppItem(new LocalKioskAppItem
             {
                 Name = manual.Name,
                 Path = manual.Path,
@@ -1300,7 +1481,7 @@ internal sealed partial class MainViewModel
                 Icon = manual.Icon,
                 Args = manual.Args,
                 IsApproved = manual.IsApproved,
-            });
+            }));
         }
 
         LocalKioskApps.Clear();
@@ -1351,12 +1532,17 @@ internal sealed partial class MainViewModel
         }
 
         var normalized = KioskApp.NormalizePath(path);
-        if (LocalKioskApps.Any(app =>
-                string.Equals(KioskApp.NormalizePath(app.Path), normalized, StringComparison.OrdinalIgnoreCase)))
+        var existing = LocalKioskApps.FirstOrDefault(app =>
+            string.Equals(KioskApp.NormalizePath(app.Path), normalized, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
         {
-            var existingName = LocalKioskApps.First(app =>
-                string.Equals(KioskApp.NormalizePath(app.Path), normalized, StringComparison.OrdinalIgnoreCase)).Name;
-            AddLog(string.Format(LocalModeCopy.KioskAppsDuplicate, existingName));
+            // Already in the list (likely auto-detected but not yet checked) — approve it
+            // instead of silently no-oping, since clicking Add visibly did nothing otherwise.
+            existing.IsApproved = true;
+            LocalKioskManualPath = string.Empty;
+            LocalKioskManualName = string.Empty;
+            PersistKioskApprovals();
+            AddLog(string.Format(LocalModeCopy.KioskAppsAddedLog, existing.Name));
             return;
         }
 
@@ -1369,13 +1555,14 @@ internal sealed partial class MainViewModel
             Name = displayName,
             Path = path,
             IconImage = ExecutableIconService.GetForPath(path),
-            Icon = "ðŸ“¦",
+            Icon = "\U0001F4E6",
             IsApproved = true,
         });
 
         LocalKioskManualPath = string.Empty;
         LocalKioskManualName = string.Empty;
         OnPropertyChanged(nameof(HasLocalKioskApps));
+        PersistKioskApprovals();
         AddLog(string.Format(LocalModeCopy.KioskAppsAddedLog, displayName));
     }
 
@@ -1739,6 +1926,128 @@ internal sealed partial class MainViewModel
             return;
 
         LocalAppTimeLimits.Remove(item);
+    }
+
+    private void BrowseLocalCustomGame()
+    {
+        if (!IsLocalMode)
+            return;
+
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Select game executable",
+            Filter = "Applications (*.exe)|*.exe",
+            CheckFileExists = true,
+        };
+
+        if (dialog.ShowDialog() != true)
+            return;
+
+        var path = dialog.FileName;
+        LocalNewGameExe = Path.GetFileName(path);
+
+        // Auto-suggest display name from version info, fallback to filename without extension
+        if (string.IsNullOrWhiteSpace(LocalNewGameName))
+        {
+            try
+            {
+                var info = System.Diagnostics.FileVersionInfo.GetVersionInfo(path);
+                var suggested = !string.IsNullOrWhiteSpace(info.ProductName)
+                    ? info.ProductName.Trim()
+                    : !string.IsNullOrWhiteSpace(info.FileDescription)
+                        ? info.FileDescription.Trim()
+                        : Path.GetFileNameWithoutExtension(path);
+                LocalNewGameName = suggested;
+            }
+            catch
+            {
+                LocalNewGameName = Path.GetFileNameWithoutExtension(path);
+            }
+        }
+    }
+
+    private void LoadLocalCustomGames()
+    {
+        LocalCustomGames.Clear();
+        foreach (var (exe, name) in _gaming.GetExtraGames())
+            LocalCustomGames.Add(new LocalCustomGameItem { Exe = exe, DisplayName = name });
+    }
+
+    private void LoadLocalWebCategories()
+    {
+        LocalWebCategories.Clear();
+        foreach (var category in WebCategoryCatalog.All)
+        {
+            var item = new LocalWebCategoryItem(OnWebCategoryToggled)
+            {
+                Key = category.Key,
+                DisplayName = category.DisplayName,
+                Description = category.Description,
+                Glyph = category.Glyph,
+            };
+            item.SetBlockedSilent(_webContentFilter.IsEnabled(category.Key));
+            LocalWebCategories.Add(item);
+        }
+    }
+
+    private void OnWebCategoryToggled(LocalWebCategoryItem _)
+    {
+        if (!IsLocalMode)
+            return;
+
+        if (!TryAuthorizeRestrictionChange("web category filter"))
+        {
+            // Reject the toggle: reload from the authoritative state.
+            LoadLocalWebCategories();
+            return;
+        }
+
+        var enabled = LocalWebCategories.Where(c => c.IsBlocked).Select(c => c.Key).ToList();
+        _webContentFilter.SetEnabledCategories(enabled);
+        RefreshRestrictions();
+        AddLog($"{UiCopy.MascotName} updated web content filtering ({enabled.Count} categories blocked).");
+    }
+
+    private void AddLocalCustomGame()
+    {
+        if (!GamingGameRegistry.TryNormalizeExe(LocalNewGameExe, out var exe))
+            return;
+
+        var name = LocalNewGameName.Trim();
+        if (string.IsNullOrEmpty(name))
+            return;
+
+        _gaming.AddExtraGame(exe, name);
+        LoadLocalCustomGames();
+        LocalNewGameExe = string.Empty;
+        LocalNewGameName = string.Empty;
+        AddLog($"Added \"{name}\" ({exe}) to the game list.");
+    }
+
+    private void RemoveLocalCustomGame(LocalCustomGameItem? item)
+    {
+        if (item is null)
+            return;
+
+        _gaming.RemoveExtraGame(item.Exe);
+        LocalCustomGames.Remove(item);
+        AddLog($"Removed \"{item.DisplayName}\" from the game list.");
+    }
+
+    private void RemoveLocalExitPin()
+    {
+        _exitPin.ClearPin();
+        LocalExitPin = string.Empty;
+        RaiseExitPinState();
+        AddLog("Exit PIN removed.");
+    }
+
+    private void RaiseExitPinState()
+    {
+        OnPropertyChanged(nameof(LocalExitPinIsSet));
+        OnPropertyChanged(nameof(LocalExitPinStatusText));
+        OnPropertyChanged(nameof(ExitPinRequired));
+        RemoveLocalExitPinCommand.RaiseCanExecuteChanged();
     }
 }
 

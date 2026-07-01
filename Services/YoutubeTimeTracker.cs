@@ -37,8 +37,11 @@ internal sealed class YoutubeTimeTracker : IDisposable
     private DateTimeOffset _lastSampleAt = DateTimeOffset.MinValue;
     private bool _wasActive;
 
-    public YoutubeTimeTracker(Dispatcher dispatcher, StudyTimeService studyTime)
+    private readonly Func<bool> _isHardEnforcement;
+
+    public YoutubeTimeTracker(Dispatcher dispatcher, StudyTimeService studyTime, Func<bool>? isHardEnforcement = null)
     {
+        _isHardEnforcement = isHardEnforcement ?? (() => true);
         _studyTime = studyTime;
         _timer = new DispatcherTimer(SampleInterval, DispatcherPriority.Normal, OnTick, dispatcher);
         LoadFromStore();
@@ -138,10 +141,16 @@ internal sealed class YoutubeTimeTracker : IDisposable
 
     public bool RestrictedModeEnabled => _restrictedModeEnabled;
 
+    // Trusted Sub is soft: the daily limit alone never blocks the browser tab, only the
+    // in-page overlay fires (see EnforceLimit). Study-time blocking stays hard regardless.
     public bool ShouldBlockYoutubeAccess =>
         _enforcementEnabled && (
-            IsOverLimit
+            (IsOverLimit && _isHardEnforcement())
             || (_studyTime.IsActiveNow && _studyTime.Settings.BlockYoutube));
+
+    // True when the extension should show the in-page soft-limit overlay (Trusted Sub only).
+    public bool ShouldSoftWarnYoutubeAccess =>
+        _enforcementEnabled && IsOverLimit && !_isHardEnforcement();
 
     public string YoutubeBlockReason
     {
@@ -150,7 +159,7 @@ internal sealed class YoutubeTimeTracker : IDisposable
             if (!_enforcementEnabled)
                 return string.Empty;
 
-            if (IsOverLimit)
+            if (IsOverLimit && _isHardEnforcement())
                 return "limit";
 
             if (_studyTime.IsActiveNow && _studyTime.Settings.BlockYoutube)
@@ -311,7 +320,8 @@ internal sealed class YoutubeTimeTracker : IDisposable
 
     private void EnforceLimit(DetectedYoutubeSession session)
     {
-        if (!YoutubeSessionBlocker.TryBlock(session, "limit"))
+        // Soft mode (Trusted Sub): don't close the tab — just remind + drop trust.
+        if (_isHardEnforcement() && !YoutubeSessionBlocker.TryBlock(session, "limit"))
             return;
 
         var now = DateTimeOffset.UtcNow;
@@ -324,7 +334,7 @@ internal sealed class YoutubeTimeTracker : IDisposable
 
     private void EnforceStudyMode(DetectedYoutubeSession session)
     {
-        if (!YoutubeSessionBlocker.TryBlock(session, "study"))
+        if (_isHardEnforcement() && !YoutubeSessionBlocker.TryBlock(session, "study"))
             return;
 
         var key = session.SourceLabel;

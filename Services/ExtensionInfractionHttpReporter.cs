@@ -19,11 +19,13 @@ internal sealed class ExtensionInfractionHttpReporter : IDisposable
     public const string BlockedSearchPath = "/blocked-search";
     public const string ShieldStatePath = "/shield-state";
     public const string HeartbeatPath = "/extension-heartbeat";
+    public const string YoutubeSoftAckPath = "/youtube-soft-ack";
 
     private static readonly Encoding Utf8NoBom = new UTF8Encoding(false);
 
     private readonly Action<string, string> _onBlockedSearch;
     private readonly Func<AgentShieldStateDto>? _getShieldState;
+    private readonly Action? _onYoutubeSoftAck;
     private TcpListener? _listener;
     private CancellationTokenSource? _cts;
     private Task? _serverTask;
@@ -31,10 +33,12 @@ internal sealed class ExtensionInfractionHttpReporter : IDisposable
 
     public ExtensionInfractionHttpReporter(
         Action<string, string> onBlockedSearch,
-        Func<AgentShieldStateDto>? getShieldState = null)
+        Func<AgentShieldStateDto>? getShieldState = null,
+        Action? onYoutubeSoftAck = null)
     {
         _onBlockedSearch = onBlockedSearch;
         _getShieldState = getShieldState;
+        _onYoutubeSoftAck = onYoutubeSoftAck;
     }
 
     public void Start()
@@ -146,6 +150,13 @@ internal sealed class ExtensionInfractionHttpReporter : IDisposable
             && string.Equals(request.Path, BlockedSearchPath, StringComparison.OrdinalIgnoreCase))
         {
             return HandleBlockedSearch(request.Body);
+        }
+
+        if (string.Equals(request.Method, "POST", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(request.Path, YoutubeSoftAckPath, StringComparison.OrdinalIgnoreCase))
+        {
+            _onYoutubeSoftAck?.Invoke();
+            return (200, "{\"ok\":true}");
         }
 
         return (404, "{\"ok\":false}");

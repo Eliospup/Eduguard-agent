@@ -152,6 +152,27 @@ internal sealed class InitialLetterConverter : IValueConverter
         throw new NotSupportedException();
 }
 
+/// <summary>
+/// Binds a double to a TextBox using an invariant "." decimal point, but also accepts a
+/// "," on the way back in — French Windows locales default the culture's decimal separator
+/// to comma, which made the "." key on the keyboard produce text the binding couldn't parse
+/// (typing "0.6" silently failed to update the source). Accepting either character sidesteps
+/// the locale mismatch without forcing the user to learn a different key.
+/// </summary>
+internal sealed class LocaleFlexibleDoubleConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
+        value is double d ? d.ToString("0.####", CultureInfo.InvariantCulture) : string.Empty;
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        var text = (value as string)?.Trim().Replace(',', '.');
+        return double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
+            ? parsed
+            : Binding.DoNothing;
+    }
+}
+
 internal sealed class SlugEqualsMultiConverter : IMultiValueConverter
 {
     public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)

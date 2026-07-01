@@ -47,8 +47,11 @@ internal sealed class AppTimeLimitTracker : IDisposable
     private DateTimeOffset _lastPersist = DateTimeOffset.MinValue;
     private DateTimeOffset _lastSampleAt = DateTimeOffset.MinValue;
 
-    public AppTimeLimitTracker(Dispatcher dispatcher)
+    private readonly Func<bool> _isHardEnforcement;
+
+    public AppTimeLimitTracker(Dispatcher dispatcher, Func<bool>? isHardEnforcement = null)
     {
+        _isHardEnforcement = isHardEnforcement ?? (() => true);
         _timer = new DispatcherTimer(SampleInterval, DispatcherPriority.Normal, OnTick, dispatcher);
         LoadFromStore();
     }
@@ -179,8 +182,19 @@ internal sealed class AppTimeLimitTracker : IDisposable
 
     private void EnforceLimit(string exe)
     {
-        if (!TryKillExe(exe, out var displayName))
-            return;
+        string? displayName;
+        if (_isHardEnforcement())
+        {
+            // Hard mode (Sub / Restricted): actually close the app.
+            if (!TryKillExe(exe, out displayName))
+                return;
+        }
+        else
+        {
+            // Soft mode (Trusted Sub): leave it running — the reminder + trust hit raised
+            // below is the only consequence.
+            displayName = AppDisplayNames.Resolve(exe);
+        }
 
         var now = DateTimeOffset.UtcNow;
         if (now - _lastLimitNotice < NoticeCooldown)

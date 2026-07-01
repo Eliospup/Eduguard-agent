@@ -127,14 +127,17 @@ internal sealed class HostsFileManager
     {
         try
         {
-            using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            // Fire-and-forget: this is a best-effort cache eviction, not a correctness
+            // requirement (the hosts file entry is already in effect for new lookups).
+            // Waiting on the child process here used to block the caller for up to 5
+            // seconds on every single blocklist edit.
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
                 FileName = "ipconfig",
                 Arguments = "/flushdns",
                 CreateNoWindow = true,
                 UseShellExecute = false,
-            });
-            process?.WaitForExit(5000);
+            })?.Dispose();
         }
         catch
         {

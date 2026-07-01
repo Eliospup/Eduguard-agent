@@ -30,18 +30,18 @@
                     Margin="0,0,0,10"
                     Padding="14,12"
                     Width="236"
-                    Background="#F8FBFF"
-                    BorderBrush="{StaticResource SkyBorderBrush}"
+                    Background="{DynamicResource CardBrush}"
+                    BorderBrush="{DynamicResource SkyBorderBrush}"
                     BorderThickness="1"
                     CornerRadius="18">
                 <StackPanel>
                     <TextBlock Text="Guardi reminder"
-                               Foreground="{StaticResource PrimaryBrush}"
+                               Foreground="{DynamicResource PrimaryBrush}"
                                FontSize="11"
                                FontWeight="SemiBold" />
                     <TextBlock Text="{Binding WidgetPromptText}"
                                Margin="0,4,0,0"
-                               Foreground="{StaticResource TextBrush}"
+                               Foreground="{DynamicResource TextBrush}"
                                FontSize="12"
                                FontWeight="SemiBold"
                                TextWrapping="Wrap" />
@@ -55,19 +55,20 @@
                                         Width="72"
                                         Height="82"
                                         HorizontalAlignment="Center"
-                                        VerticalAlignment="Center" />
-                    <views:GuardiShieldIcon x:Name="SoberShield"
-                                            Width="52"
-                                            Height="60"
+                                        VerticalAlignment="Center"
+                                        Visibility="{Binding IsSubMode, Converter={StaticResource BoolToVisibility}}" />
+                    <views:TrustedSubMascot x:Name="SoberShield"
+                                            Width="72"
+                                            Height="82"
                                             HorizontalAlignment="Center"
                                             VerticalAlignment="Center"
-                                            Visibility="Collapsed" />
-                    <views:GuardiLockedShieldIcon x:Name="LockedShield"
+                                            Visibility="{Binding IsTrustedSubMode, Converter={StaticResource BoolToVisibility}}" />
+                    <views:RestrictedSubMascot x:Name="LockedShield"
                                                   Width="72"
                                                   Height="82"
                                                   HorizontalAlignment="Center"
                                                   VerticalAlignment="Center"
-                                                  Visibility="Collapsed" />
+                                                  Visibility="{Binding IsRestrictedSubMode, Converter={StaticResource BoolToVisibility}}" />
                     <Ellipse Width="10"
                              Height="10"
                              HorizontalAlignment="Right"
@@ -75,16 +76,16 @@
                              Margin="0,4,6,0">
                         <Ellipse.Style>
                             <Style TargetType="Ellipse">
-                                <Setter Property="Fill" Value="{StaticResource MutedBrush}" />
+                                <Setter Property="Fill" Value="{DynamicResource MutedBrush}" />
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding SupervisionIndicatorIsActive}" Value="True">
-                                        <Setter Property="Fill" Value="{StaticResource OnlineBrush}" />
+                                        <Setter Property="Fill" Value="{DynamicResource OnlineBrush}" />
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding SupervisionIndicatorIsPending}" Value="True">
-                                        <Setter Property="Fill" Value="{StaticResource SupervisionPendingBrush}" />
+                                        <Setter Property="Fill" Value="{DynamicResource SupervisionPendingBrush}" />
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding SupervisionIndicatorIsOffline}" Value="True">
-                                        <Setter Property="Fill" Value="{StaticResource SupervisionPendingBrush}" />
+                                        <Setter Property="Fill" Value="{DynamicResource SupervisionPendingBrush}" />
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
@@ -101,24 +102,24 @@
                         Visibility="Visible">
                     <Border.Style>
                         <Style TargetType="Border">
-                            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
-                            <Setter Property="BorderBrush" Value="{StaticResource SkyBorderBrush}" />
+                            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                            <Setter Property="BorderBrush" Value="{DynamicResource SkyBorderBrush}" />
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding SupervisionIndicatorIsActive}" Value="True">
                                     <Setter Property="Background" Value="#D1FAE5" />
-                                    <Setter Property="BorderBrush" Value="{StaticResource OnlineBrush}" />
+                                    <Setter Property="BorderBrush" Value="{DynamicResource OnlineBrush}" />
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding SupervisionIndicatorIsPending}" Value="True">
                                     <Setter Property="Background" Value="#FEF3C7" />
-                                    <Setter Property="BorderBrush" Value="{StaticResource SupervisionPendingBrush}" />
+                                    <Setter Property="BorderBrush" Value="{DynamicResource SupervisionPendingBrush}" />
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding SupervisionIndicatorIsOffline}" Value="True">
                                     <Setter Property="Background" Value="#FEF3C7" />
-                                    <Setter Property="BorderBrush" Value="{StaticResource SupervisionPendingBrush}" />
+                                    <Setter Property="BorderBrush" Value="{DynamicResource SupervisionPendingBrush}" />
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding SupervisionIndicatorIsInactive}" Value="True">
                                     <Setter Property="Background" Value="#F1F5F9" />
-                                    <Setter Property="BorderBrush" Value="{StaticResource MutedBrush}" />
+                                    <Setter Property="BorderBrush" Value="{DynamicResource MutedBrush}" />
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
@@ -130,19 +131,19 @@
                                FontFamily="Consolas, Cascadia Mono, Segoe UI, monospace">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
-                                <Setter Property="Foreground" Value="{StaticResource PrimaryDarkBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource PrimaryDarkBrush}" />
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding SupervisionIndicatorIsActive}" Value="True">
-                                        <Setter Property="Foreground" Value="{StaticResource OnlineBrush}" />
+                                        <Setter Property="Foreground" Value="{DynamicResource OnlineBrush}" />
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding SupervisionIndicatorIsPending}" Value="True">
-                                        <Setter Property="Foreground" Value="{StaticResource SupervisionPendingBrush}" />
+                                        <Setter Property="Foreground" Value="{DynamicResource SupervisionPendingBrush}" />
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding SupervisionIndicatorIsOffline}" Value="True">
-                                        <Setter Property="Foreground" Value="{StaticResource SupervisionPendingBrush}" />
+                                        <Setter Property="Foreground" Value="{DynamicResource SupervisionPendingBrush}" />
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding SupervisionIndicatorIsInactive}" Value="True">
-                                        <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+                                        <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
@@ -151,26 +152,26 @@
                 </Border>
 
                 <Border x:Name="ScreenTimeBadge"
-                        Background="{StaticResource AccentBrush}"
+                        Background="{DynamicResource AccentBrush}"
                         CornerRadius="5"
                         Padding="5,2"
                         Margin="0,3,0,0"
                         HorizontalAlignment="Center"
-                        BorderBrush="{StaticResource SkyBorderBrush}"
+                        BorderBrush="{DynamicResource SkyBorderBrush}"
                         BorderThickness="1"
                         Visibility="{Binding ShowWidgetScreenTime, Converter={StaticResource BoolToVisibility}}">
                     <TextBlock x:Name="RemainingText"
                                Text="{Binding WidgetScreenTimeRemaining}"
                                FontSize="9"
                                FontWeight="Bold"
-                               Foreground="{StaticResource PrimaryDarkBrush}"
+                               Foreground="{DynamicResource PrimaryDarkBrush}"
                                HorizontalAlignment="Center"
                                FontFamily="Consolas, Cascadia Mono, Segoe UI, monospace">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding WidgetScreenTimeExhausted}" Value="True">
-                                        <Setter Property="Foreground" Value="{StaticResource WarningBrush}" />
+                                        <Setter Property="Foreground" Value="{DynamicResource WarningBrush}" />
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>

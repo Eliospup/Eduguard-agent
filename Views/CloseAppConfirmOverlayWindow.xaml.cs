@@ -14,9 +14,7 @@ public partial class CloseAppConfirmOverlayWindow : Window
             HintText.Text = Profiles.UiCopy.TrayQuitHint;
         StayButton.Content = Profiles.UiCopy.CloseAppStayButton;
         QuitButton.Content = Profiles.UiCopy.CloseAppQuitButton;
-        Mascot.Visibility = Profiles.UiPresentationState.Current.ShowMascot
-            ? Visibility.Visible
-            : Visibility.Collapsed;
+        Profiles.UiPresentationState.ApplyMascotVisibility(Mascot, TrustedSubMascotIcon, RestrictedSubMascotIcon);
     }
     private void OnStayClick(object sender, RoutedEventArgs e)
     {

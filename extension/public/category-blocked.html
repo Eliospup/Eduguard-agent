@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Guardi — Site blocked</title>
+    <link rel="stylesheet" href="guardi-ui.css" />
+    <style>
+      .guardi-blocked-card {
+        max-width: 560px;
+        border-color: var(--guardi-pink-hot);
+        box-shadow: 0 16px 48px var(--guardi-shadow);
+      }
+      .guardi-blocked-title {
+        color: var(--guardi-blue-deep);
+      }
+      .guardi-category-chip {
+        display: inline-block;
+        margin-top: 6px;
+        padding: 4px 14px;
+        border-radius: 999px;
+        background: var(--guardi-sky);
+        color: var(--guardi-text-soft);
+        font-family: var(--guardi-font-display);
+        font-weight: 700;
+        font-size: 0.85rem;
+        text-transform: capitalize;
+      }
+      .guardi-blocked-btn {
+        display: inline-flex;
+        margin-top: 20px;
+        padding: 12px 24px;
+        border-radius: 999px;
+        border: 3px solid var(--guardi-blue);
+        background: linear-gradient(135deg, var(--guardi-pink) 0%, var(--guardi-sky) 100%);
+        font-family: var(--guardi-font-display);
+        font-weight: 700;
+        font-size: 1rem;
+        color: var(--guardi-text-soft);
+        text-decoration: none;
+        box-shadow: 0 8px 24px var(--guardi-shadow);
+      }
+    </style>
+  </head>
+  <body class="guardi-newtab guardi-blocked-page guardi-category-block-page">
+    <div class="guardi-sky">
+      <main class="guardi-page" role="main">
+        <section class="guardi-card guardi-blocked-card" aria-labelledby="guardi-category-title">
+          <img
+            class="guardi-mascot"
+            src="assets/guardi-mascot.png"
+            width="140"
+            height="158"
+            alt=""
+            aria-hidden="true"
+          />
+          <h1 class="guardi-title guardi-blocked-title" id="guardi-category-title">
+            This site is blocked
+          </h1>
+          <p class="guardi-category-chip" id="guardi-category-name" hidden></p>
+          <p class="guardi-subtitle">
+            Guardi keeps this kind of website off-limits.
+          </p>
+          <p class="guardi-body">
+            This page belongs to a content category your Dom has blocked. Try somewhere else, or ask your Dom if you
+            think this is a mistake.
+          </p>
+          <a class="guardi-blocked-btn" id="guardi-back" href="newtab.html">
+            Take me somewhere safe
+          </a>
+        </section>
+      </main>
+    </div>
+    <script>
+      // Surface the blocked category name if the guard passed one.
+      try {
+        const params = new URLSearchParams(location.search);
+        const category = params.get("category");
+        if (category) {
+          const chip = document.getElementById("guardi-category-name");
+          chip.textContent = category.replace(/[-_]/g, " ");
+          chip.hidden = false;
+        }
+      } catch {
+        /* no-op */
+      }
+    </script>
+    <script src="guardi-shell.js"></script>
+  </body>
+</html>

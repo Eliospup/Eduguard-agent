@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Windows;
 using EduGuardAgent.Models;
+using EduGuardAgent.Profiles;
 
 namespace EduGuardAgent.Views;
 
@@ -16,6 +17,7 @@ public partial class ExtensionInstallOverlayWindow : Window
         InitializeComponent();
         _onDevSkip = onDevSkip;
         DevSkipButton.Visibility = onDevSkip is not null ? Visibility.Visible : Visibility.Collapsed;
+        UiPresentationState.ApplyMascotVisibility(Mascot, TrustedSubMascotIcon, RestrictedSubMascotIcon);
         Update(state);
     }
 
