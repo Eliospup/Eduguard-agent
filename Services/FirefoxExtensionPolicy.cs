@@ -126,6 +126,48 @@ internal sealed class FirefoxExtensionPolicy
     }
 
     /// <summary>
+    /// Cheap, write-free tamper check for the policy watchdog: returns false the moment any
+    /// installed Firefox root has lost the force_installed entry (or, on the signed release
+    /// target, the bundled XPI it points at). Missing/corrupt/unreadable policy files count as
+    /// tampered. Returns true when Firefox isn't installed (nothing to protect).
+    /// </summary>
+    public bool IsForceInstallIntact(string addonId)
+    {
+        foreach (var installRoot in FindInstallRoots())
+        {
+            var policyPath = Path.Combine(installRoot, "distribution", PolicyFileName);
+            if (!File.Exists(policyPath))
+                return false;
+
+            try
+            {
+                if (JsonNode.Parse(File.ReadAllText(policyPath)) is not JsonObject root
+                    || root["policies"] is not JsonObject policies
+                    || policies["ExtensionSettings"] is not JsonObject extensionSettings
+                    || extensionSettings[addonId] is not JsonObject entry
+                    || !string.Equals(entry["installation_mode"]?.GetValue<string>(),
+                        "force_installed", StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
+                if (FirefoxEditionHelper.UseSignedReleaseTarget)
+                {
+                    var bundledXpi = Path.Combine(installRoot, "distribution", "extensions", addonId + ".xpi");
+                    if (!File.Exists(bundledXpi))
+                        return false;
+                }
+            }
+            catch
+            {
+                return false; // unreadable / corrupt — treat as tampered so the watchdog repairs it
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// Installs unsigned MV2 on Firefox Developer Edition via unpacked sideload only.
     /// Unsigned local XPIs fail policy install with ERROR_CORRUPT_FILE — Mozilla documents
     /// distribution/extensions/{id}/ (unpacked) for distro bundles on Dev Edition.

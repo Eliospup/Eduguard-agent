@@ -54,6 +54,10 @@ internal static class WebCategoryCatalog
                 "dorcel.com", "espaceplaisir.fr", "passagedudesir.fr", "lelo.com",
                 "satisfyer.com", "womanizer.com", "we-vibe.com", "fleshlight.com",
                 "kiiroo.com", "lovense.com", "tracyssdog.com", "sextoys.fr",
+                "regulation.store", "mr-s-leather.com", "recon.com", "fetlife.com",
+                "nasty-pig.com", "forttroff.com", "665leather.com", "cloneawilly.com",
+                "bdsmstore.com", "the-stockroom.com", "extremerestraints.com",
+                "sub-shop.com", "fetishzone.net", "demonia.fr", "fetish-emporium.co.uk",
             ],
             Keywords:
             [
@@ -63,7 +67,8 @@ internal static class WebCategoryCatalog
                 "spankbang", "chaturbate", "livejasmin", "stripchat", "hqporner", "porntrex",
                 "erome", "voirporno", "jacquieetmichel",
                 "sextoy", "sexshop", "sex-shop", "adulttoy", "lovehoney", "dorcel",
-                "fleshlight", "lovense",
+                "fleshlight", "lovense", "fetish", "fetlife", "kink", "bondage",
+                "bdsm", "recon", "nasty-pig", "forttroff", "leather-fetish",
             ])
         {
             StrongTerms =
@@ -74,11 +79,34 @@ internal static class WebCategoryCatalog
                 "vibrators", "plug anal", "butt plug", "masturbateur", "masturbator",
                 "fleshlight", "bondage", "bdsm", "fellation", "blowjob", "cunnilingus",
                 "gangbang", "hentai", "camgirl", "escort girl", "xxx",
+                "fisting", "poppers", "dominatrix", "dominatrice",
+                "strapon", "strap-on", "gode ceinture",
+                "cockring", "cock ring", "anneau pénien",
+                "nipple clamps", "pinces à tétons",
+                "ball gag", "bâillon boule",
+                "anal beads", "boules anales",
+                "chastity cage", "cage de chasteté", "ceinture de chasteté",
+                "sex doll", "love doll", "poupée sexuelle",
+                "ball stretcher", "penis pump", "pompe à pénis",
+                "prostate massager", "masseur prostatique",
+                "fetish shop", "fetish store", "boutique fétichiste",
+                "fetish wear", "tenue fétichiste",
+                "electro sex", "électrostimulation",
+                "jockstrap", "cock cage", "chastity belt",
+                "glory hole", "gang bang",
             ],
             WeakTerms =
             [
                 "érotique", "erotique", "erotic", "sexy", "lingerie", "lubrifiant",
                 "lubricant", "nudes", "topless", "hardcore", "nsfw",
+                "fetish", "fétichiste", "fétichisme",
+                "kink", "kinky",
+                "submissive", "soumis", "soumise",
+                "whip", "fouet", "paddle", "cravache",
+                "latex", "leather",
+                "collar", "collier",
+                "restraint", "contention",
+                "corset", "harness", "harnais",
             ],
         },
 

@@ -19,6 +19,88 @@ internal sealed class ChromiumExtensionPolicy
         @"SOFTWARE\Policies\BraveSoftware\Brave",
     ];
 
+    private static readonly IReadOnlyList<(string Root, BrowserKind Kind)> PolicyRootKinds =
+    [
+        (@"SOFTWARE\Policies\Google\Chrome", BrowserKind.Chrome),
+        (@"SOFTWARE\Policies\Microsoft\Edge", BrowserKind.Edge),
+        (@"SOFTWARE\Policies\BraveSoftware\Brave", BrowserKind.Brave),
+    ];
+
+    /// <summary>
+    /// Cheap, write-free tamper check for the policy watchdog: false the moment an *installed*
+    /// Chromium browser has lost our ExtensionInstallForcelist entry. Only meaningful in the
+    /// Web Store force-install mode (unpacked dev mode intentionally carries no forcelist), so
+    /// the caller must gate on that. Returns true when no supported Chromium browser is present.
+    /// </summary>
+    public bool IsForcelistIntact(string extensionId)
+    {
+        foreach (var (root, kind) in PolicyRootKinds)
+        {
+            if (!BrowserInstalled(kind))
+                continue;
+
+            var forcelistPath = $@"{root}\ExtensionInstallForcelist";
+            using var key = Registry.LocalMachine.OpenSubKey(forcelistPath);
+            if (key is null)
+                return false;
+
+            var present = key.GetValueNames()
+                .Select(name => key.GetValue(name) as string)
+                .Any(s => s is not null && s.StartsWith(extensionId + ";", StringComparison.OrdinalIgnoreCase));
+            if (!present)
+                return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Lightweight, backup-free re-assertion of the force-install forcelist for the watchdog.
+    /// Re-adds our entry to each installed Chromium browser that is missing it, WITHOUT touching
+    /// the teardown backup store — the original install backup stays the single source of truth
+    /// for uninstall, so a mid-session repair can't corrupt it. Returns the roots it repaired.
+    /// </summary>
+    public IReadOnlyList<string> RepairForcelist(string extensionId, string updateUrl)
+    {
+        var repaired = new List<string>();
+        if (string.IsNullOrWhiteSpace(updateUrl))
+            return repaired;
+
+        var desired = $"{extensionId};{updateUrl}";
+
+        foreach (var (root, kind) in PolicyRootKinds)
+        {
+            if (!BrowserInstalled(kind))
+                continue;
+
+            try
+            {
+                var forcelistPath = $@"{root}\ExtensionInstallForcelist";
+                using var key = Registry.LocalMachine.CreateSubKey(forcelistPath, writable: true);
+                if (key is null)
+                    continue;
+
+                var already = key.GetValueNames()
+                    .Select(name => key.GetValue(name) as string)
+                    .Any(s => s is not null && s.StartsWith(extensionId + ";", StringComparison.OrdinalIgnoreCase));
+                if (already)
+                    continue;
+
+                key.SetValue(NextFreeIntSlot(key), desired, RegistryValueKind.String);
+                repaired.Add(root);
+            }
+            catch
+            {
+                // Best effort — the next timer tick retries.
+            }
+        }
+
+        return repaired;
+    }
+
+    private static bool BrowserInstalled(BrowserKind kind) =>
+        BrowserCatalog.Protected.FirstOrDefault(b => b.Kind == kind)?.IsInstalled() ?? false;
+
     public (List<RegistryStringBackup> Values, List<string> KeysCreated, List<string> Errors) Apply(
         string extensionId,
         string? updateUrl,

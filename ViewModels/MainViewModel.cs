@@ -33,6 +33,7 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
     private readonly ImageBlurExtensionService _imageShield;
     private readonly ImageShieldPolicyService _imageShieldPolicy;
     private readonly ExtensionEnforcementService _extensionGuard;
+    private readonly ExtensionPolicyWatchdog _extensionPolicyWatchdog;
     private readonly VpnBlockingService _vpnBlocking;
     private readonly ScreenTimeTracker _screenTime;
     private readonly StudyTimeService _studyTime;
@@ -169,6 +170,44 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
                 if (_imageShield.IsConfigured)
                     _imageShield.PrepareFirefoxExtensionUpgrade(msg => PostOnUi(() => AddLog(msg)));
             });
+        // Autonomous, browser-independent guard: rewrites distribution/policies.json the moment
+        // an admin-level user deletes it, so the shield can't be unloaded by wiping the policy
+        // file between (or before) browser launches. Self-gates on the shield being enabled.
+        _extensionPolicyWatchdog = new ExtensionPolicyWatchdog(
+            shouldEnforce: () =>
+                _imageShieldPolicy.IsEffectivelyEnabled(_agentMode.Slug)
+                && ImageShieldRuntimeStore.IsFilteringActive,
+            firefoxAddonId: () => ExtensionConfigResolver.Active?.FirefoxAddonId,
+            repairFirefox: () =>
+            {
+                if (!_imageShield.IsConfigured)
+                    return;
+                var settings = _imageShieldPolicy.BuildTuningSettings(_agentMode.Slug);
+                if (_imageShield.HasPersistedInstall)
+                {
+                    _imageShield.SetRuntimeActive(true, settings);
+                    _imageShield.ApplyFirefoxSignedEnterprisePolicies(settings, requireDomToggle: false);
+                }
+                else
+                {
+                    _imageShield.Apply(settings);
+                }
+            },
+            chromiumTarget: () =>
+            {
+                if (!Config.ExtensionGuardEnforceChromium || ChromiumUnpackedMode.IsActive)
+                    return null;
+                var cfg = ExtensionConfigResolver.Active;
+                if (cfg is null || !cfg.IsChromiumReady || string.IsNullOrWhiteSpace(cfg.ChromeUpdateUrl))
+                    return null;
+                return (cfg.ChromiumExtensionId, cfg.ChromeUpdateUrl);
+            },
+            log: msg =>
+            {
+                AuditLog.Write($"Extension policy watchdog: {msg}");
+                PostOnUi(() => AddLog(msg));
+            });
+        _extensionPolicyWatchdog.Start();
         BrowserInstallOrchestrator.RestartCountdownHandler = (browser, message, seconds) =>
             PostOnUi(() => BrowserRestartCountdownRequested?.Invoke(browser, message, seconds));
         _screenTime = new ScreenTimeTracker(_dispatcher);
@@ -887,6 +926,7 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
         _youtubeRestricted.Dispose();
         _imageShield.Dispose();
         _extensionGuard.Dispose();
+        _extensionPolicyWatchdog.Dispose();
         _kiosk.Dispose();
         _agentMode.Dispose();
         _host.Dispose();
