@@ -93,9 +93,13 @@ const searchInput = document.getElementById("guardi-search-input");
 const NEUTRAL_PLACEHOLDER = "Search with Google or enter address";
 
 function applyActiveState(isActive, managed) {
+  // Enforcement (blocked-search) stays tied to supervision; the styling is a separate,
+  // user-hideable layer. styledNewTab === false → render the neutral, unbranded page even
+  // while supervised, so search is still checked but no Guardi chrome shows.
   supervisionActive = isActive;
-  document.body.classList.toggle("guardi-newtab--neutral", !isActive);
-  if (isActive) applyModeFromManaged(managed);
+  const styled = isActive && managed?.styledNewTab !== false;
+  document.body.classList.toggle("guardi-newtab--neutral", !styled);
+  if (styled) applyModeFromManaged(managed);
   else if (searchInput) searchInput.placeholder = NEUTRAL_PLACEHOLDER;
 }
 

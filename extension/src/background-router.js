@@ -141,7 +141,7 @@ async function onShieldStateChange(active, managed) {
   currentManaged = managed || { shieldActive: active };
   youtubeGuard.onManagedChange();
   categoryGuard.onManagedChange();
-  syncGuardiChrome(api, active, parseUiMode(currentManaged));
+  syncGuardiChrome(api, active, parseUiMode(currentManaged), currentManaged?.websiteBadge !== false);
   if (active) {
     if (!wasActive) {
       ensureOffscreen().catch(() => {});

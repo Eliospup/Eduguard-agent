@@ -172,7 +172,7 @@ async function onShieldStateChange(active, managed) {
   youtubeGuard.onManagedChange();
   categoryGuard.onManagedChange();
   engine.applyManaged(currentManaged);
-  syncGuardiChrome(api, active, parseUiMode(currentManaged));
+  syncGuardiChrome(api, active, parseUiMode(currentManaged), currentManaged?.websiteBadge !== false);
 
   if (active) {
     if (!wasActive) {

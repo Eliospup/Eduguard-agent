@@ -16,9 +16,9 @@ function defaultActionTitle(api) {
   );
 }
 
-export function syncGuardiChrome(api, active, uiMode = "sub") {
+export function syncGuardiChrome(api, active, uiMode = "sub", showChrome = true) {
   const actionApi = api.action || api.browserAction;
-  if (active) {
+  if (active && showChrome) {
     api.theme?.update?.(getBrowserTheme(uiMode))?.catch?.(() => {});
     const title = getModeUi(uiMode).copy.actionTitle;
     if (title && actionApi?.setTitle) {

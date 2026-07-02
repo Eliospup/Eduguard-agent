@@ -166,9 +166,15 @@ export function createBackgroundStateWatcher(api, { onChange, pollMs = 2500, get
   async function refresh() {
     const ts = Date.now();
     const agent = await fetchAgentShieldState();
-    const agentActive = agent.agentRunning === true && agent.active === true;
 
-    if (!agentActive) {
+    // Only a STOPPED agent means "no enforcement at all" (fail closed, drop everything).
+    // When the agent is running but the image (blur) shield itself is off, we must still
+    // forward its managed flags: the YouTube time limit + hard block and the web-category
+    // filtering are independent of the blur shield. Previously "shield off" was collapsed
+    // into "inactive" here, which silently dropped youtubeSoftLimit / youtubeBlocked /
+    // youtubeBlockReason / blockedCategory* — so YouTube ran past its limit and category
+    // content scoring went dark whenever the blur shield happened to be off.
+    if (agent.agentRunning !== true) {
       const managed = normalizeManagedForRuntime({ shieldActive: false }, false);
       const wasActive = active;
       active = false;
@@ -178,13 +184,14 @@ export function createBackgroundStateWatcher(api, { onChange, pollMs = 2500, get
       return lastSnapshot;
     }
 
-    const managed = normalizeManagedForRuntime(agent.managed || { shieldActive: true }, true);
+    const shieldOn = agent.active === true;
+    const managed = normalizeManagedForRuntime(agent.managed || { shieldActive: shieldOn }, shieldOn);
     const next = managed.shieldActive === true;
     const wasFirstRun = !bootstrapped;
     active = next;
     const changed = publishIfChanged(active, managed, ts);
 
-    if (active) {
+    if (shieldOn) {
       sendExtensionHeartbeat(api, getHeartbeatStatus?.() ?? { shieldActive: active });
     }
 
