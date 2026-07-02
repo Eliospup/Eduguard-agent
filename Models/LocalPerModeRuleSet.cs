@@ -206,6 +206,17 @@ internal sealed class LocalSettingsCatalog
     public bool DesktopWidgetRemindersEnabled { get; set; } = true;
     public int DesktopWidgetReminderFrequencyMinutes { get; set; } = 15;
 
+    // --- Appearance / on-screen visuals (global, all modes) ----------------
+    // Master switches to hide Guardi's visible surfaces without changing what is
+    // actually enforced. Timers still tick, sites are still filtered — only the UI
+    // chrome is hidden. newtab + website badge live in the extension and are pushed
+    // via shield-state (take effect after the extension picks up the state).
+    public bool ShowDesktopWidget { get; set; } = true;
+    public bool ShowGamingTimer { get; set; } = true;
+    public bool ShowYoutubeTimer { get; set; } = true;
+    public bool StyledNewTabPage { get; set; } = true;
+    public bool ShowWebsiteBadge { get; set; } = true;
+
     public int ScreenshotIntervalMinutes { get; set; } = Config.ScreenshotIntervalMinutes;
 
     public List<string> BlockedApps { get; set; } = [];

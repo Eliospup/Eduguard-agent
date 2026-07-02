@@ -300,8 +300,7 @@ internal sealed class YoutubeTimeTracker : IDisposable
         lock (_stateLock)
         {
             var remaining = LimitDuration - TimeSpan.FromSeconds(_totalSeconds);
-            if (remaining < TimeSpan.Zero)
-                remaining = TimeSpan.Zero;
+            var exhausted = remaining <= TimeSpan.Zero;
 
             var progress = LimitSeconds <= 0
                 ? 0
@@ -310,7 +309,7 @@ internal sealed class YoutubeTimeTracker : IDisposable
             hudState = new YoutubeHudState
             {
                 SourceLabel = active.SourceLabel,
-                RemainingLabel = FormatCountdown(remaining),
+                RemainingLabel = exhausted ? UiCopy.HudTimesUpLabel : FormatCountdown(remaining),
                 Progress = progress,
             };
         }

@@ -54,8 +54,22 @@ internal static class FirefoxSignedXpiCache
                 else
                 {
                     File.WriteAllBytes(cachedPath, bytes);
-                    AuditLog.Write($"Firefox XPI prefetched — {bytes.Length} bytes cached at {cachedPath}.");
-                    return (cachedPath, errors);
+                    if (!IsSignedXpi(cachedPath))
+                    {
+                        // A signed release URL must return a Mozilla-signed XPI. If it doesn't,
+                        // caching it would just reproduce the unsigned-install loop — fail loud
+                        // and leave nothing behind instead.
+                        try { File.Delete(cachedPath); } catch { /* best effort */ }
+                        errors.Add("Downloaded Firefox XPI is not Mozilla-signed — refusing to cache.");
+                        AuditLog.Write(
+                            "SECURITY: downloaded Firefox XPI is unsigned — not caching. " +
+                            "Sign the release XPI (npm run sign:firefox) before publishing.");
+                    }
+                    else
+                    {
+                        AuditLog.Write($"Firefox XPI prefetched — {bytes.Length} bytes cached at {cachedPath}.");
+                        return (cachedPath, errors);
+                    }
                 }
             }
             catch (Exception ex)
@@ -129,5 +143,27 @@ internal static class FirefoxSignedXpiCache
     private static bool IsValidXpi(string? path) =>
         !string.IsNullOrWhiteSpace(path)
         && File.Exists(path)
-        && new FileInfo(path).Length > 4096;
+        && new FileInfo(path).Length > 4096
+        && IsSignedXpi(path!);
+
+    /// <summary>
+    /// True when the XPI carries a Mozilla add-on signature (META-INF/cose.sig or mozilla.rsa).
+    /// Firefox Release refuses unsigned XPIs, so an unsigned cache/bundle is worse than none: it
+    /// makes force-install fail silently and Guardi restart the browser in a loop. Treating
+    /// unsigned files as invalid forces the signed release to be (re)downloaded instead of a
+    /// stale local build being reused indefinitely.
+    /// </summary>
+    private static bool IsSignedXpi(string path)
+    {
+        try
+        {
+            using var zip = System.IO.Compression.ZipFile.OpenRead(path);
+            return zip.GetEntry("META-INF/cose.sig") is not null
+                || zip.GetEntry("META-INF/mozilla.rsa") is not null;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 }

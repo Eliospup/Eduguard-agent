@@ -408,8 +408,7 @@ internal sealed class GamingTimeTracker : IDisposable
         lock (_stateLock)
         {
             var globalRemaining = LimitDuration - TimeSpan.FromSeconds(_globalSeconds);
-            if (globalRemaining < TimeSpan.Zero)
-                globalRemaining = TimeSpan.Zero;
+            var exhausted = globalRemaining <= TimeSpan.Zero;
 
             var progressBase = LimitSeconds <= 0
                 ? 0
@@ -418,7 +417,7 @@ internal sealed class GamingTimeTracker : IDisposable
             hudState = new GamingHudState
             {
                 GameName = game.DisplayName,
-                RemainingLabel = FormatCountdown(globalRemaining),
+                RemainingLabel = exhausted ? UiCopy.HudTimesUpLabel : FormatCountdown(globalRemaining),
                 Progress = Math.Min(progressBase, 100.0),
             };
         }

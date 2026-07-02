@@ -88,6 +88,7 @@ public partial class GuardiWidgetWindow : Window
         if (_dataContextNotifier is not null)
             _dataContextNotifier.PropertyChanged += OnViewModelPropertyChanged;
 
+        ApplyWidgetVisibility();
         UpdatePromptLayout();
     }
 
@@ -97,6 +98,19 @@ public partial class GuardiWidgetWindow : Window
         {
             Dispatcher.BeginInvoke(UpdatePromptLayout, System.Windows.Threading.DispatcherPriority.Background);
         }
+        else if (e.PropertyName is nameof(MainViewModel.DesktopWidgetVisible))
+        {
+            Dispatcher.BeginInvoke(ApplyWidgetVisibility, System.Windows.Threading.DispatcherPriority.Background);
+        }
+    }
+
+    /// <summary>Hides/shows the whole widget per the user's Appearance setting.</summary>
+    private void ApplyWidgetVisibility()
+    {
+        var visible = DataContext is not MainViewModel vm || vm.DesktopWidgetVisible;
+        Visibility = visible ? Visibility.Visible : Visibility.Hidden;
+        if (visible && IsLoaded)
+            RepositionToBottomRight();
     }
 
     private void UpdatePromptLayout()

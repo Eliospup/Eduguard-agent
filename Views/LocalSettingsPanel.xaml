@@ -632,17 +632,6 @@
                             ItemTemplate="{StaticResource LocalCustomGameTemplate}" />
             </StackPanel>
           </Border>
-          <Border Style="{StaticResource LocalSectionBox}">
-            <Grid>
-              <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-              <StackPanel Margin="0,0,16,0">
-                <TextBlock Text="SHOW PLAY TIME OVERLAY" Style="{StaticResource LocalSectionLabel}" />
-                <TextBlock Text="The Sub sees how much play time is left while gaming."
-                           Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" />
-              </StackPanel>
-              <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding LocalGamingShowOverlay}" VerticalAlignment="Center" />
-            </Grid>
-          </Border>
         </StackPanel>
 
         <!-- YouTube -->
@@ -669,17 +658,6 @@
               <Button Content="Save" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left"
                       Command="{Binding SaveLocalSectionCommand}" Margin="0,12,0,0" Padding="18,8" />
             </StackPanel>
-          </Border>
-          <Border Style="{StaticResource LocalSectionBox}">
-            <Grid>
-              <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-              <StackPanel Margin="0,0,16,0">
-                <TextBlock Text="SHOW YOUTUBE TIME OVERLAY" Style="{StaticResource LocalSectionLabel}" />
-                <TextBlock Text="The Sub sees how much YouTube time is left while watching."
-                           Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" />
-              </StackPanel>
-              <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding LocalYoutubeShowOverlay}" VerticalAlignment="Center" />
-            </Grid>
           </Border>
           <Border Style="{StaticResource LocalSectionBox}">
             <Grid>
@@ -1045,6 +1023,129 @@
                   Command="{Binding SaveLocalSectionCommand}" Padding="18,8" Margin="0,4,0,0" />
         </StackPanel>
 
+        <!-- Appearance -->
+        <Border Style="{StaticResource LocalSectionBox}"
+                Visibility="{Binding IsLocalAppearanceSection, Converter={StaticResource BoolToVisibility}}">
+          <StackPanel>
+            <TextBlock Text="ON-SCREEN VISUALS" Style="{StaticResource LocalSectionLabel}" />
+            <TextBlock Text="Hide Guardi's visible surfaces. Nothing is un-enforced — timers still tick, sites are still filtered — only the on-screen chrome is hidden. Applies to every mode."
+                       Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,14" />
+
+            <!-- Desktop widget -->
+            <Grid Margin="0,0,0,12">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <StackPanel Margin="0,0,16,0">
+                <TextBlock Text="Desktop widget" Style="{StaticResource LocalSectionLabel}" />
+                <TextBlock Text="The little floating Guardi badge on the desktop." TextWrapping="Wrap"
+                           Foreground="{DynamicResource MutedBrush}" />
+              </StackPanel>
+              <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}"
+                        IsChecked="{Binding LocalShowDesktopWidget}"
+                        VerticalAlignment="Center" Margin="0,4,0,0" />
+            </Grid>
+
+            <!-- Widget reminder messages -->
+            <Grid Margin="0,0,0,8">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <StackPanel Margin="0,0,16,0">
+                <TextBlock Text="{x:Static prof:LocalModeCopy.WidgetRemindersTitle}" Style="{StaticResource LocalSectionLabel}" />
+                <TextBlock Text="{x:Static prof:LocalModeCopy.WidgetRemindersHint}" TextWrapping="Wrap"
+                           Foreground="{DynamicResource MutedBrush}" />
+              </StackPanel>
+              <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}"
+                        IsChecked="{Binding LocalWidgetRemindersEnabled}"
+                        IsEnabled="{Binding LocalShowDesktopWidget}"
+                        VerticalAlignment="Center" Margin="0,4,0,0" />
+            </Grid>
+            <StackPanel Margin="0,0,0,12">
+              <TextBlock Text="{x:Static prof:LocalModeCopy.WidgetRemindersFrequencyLabel}" Style="{StaticResource LocalSectionLabel}" />
+              <TextBox Text="{Binding LocalWidgetReminderFrequencyMinutes, UpdateSourceTrigger=PropertyChanged}"
+                       Width="120" HorizontalAlignment="Left"
+                       IsEnabled="{Binding LocalWidgetRemindersEnabled}" />
+            </StackPanel>
+
+            <Separator Margin="0,2,0,12" />
+
+            <!-- Gaming timer -->
+            <Grid Margin="0,0,0,12">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <StackPanel Margin="0,0,16,0">
+                <TextBlock Text="Game time countdown" Style="{StaticResource LocalSectionLabel}" />
+                <TextBlock Text="The little timer overlay while a game is running." TextWrapping="Wrap"
+                           Foreground="{DynamicResource MutedBrush}" />
+              </StackPanel>
+              <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}"
+                        IsChecked="{Binding LocalShowGamingTimer}"
+                        VerticalAlignment="Center" Margin="0,4,0,0" />
+            </Grid>
+
+            <!-- YouTube timer -->
+            <Grid Margin="0,0,0,12">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <StackPanel Margin="0,0,16,0">
+                <TextBlock Text="YouTube time countdown" Style="{StaticResource LocalSectionLabel}" />
+                <TextBlock Text="The little timer overlay while watching YouTube." TextWrapping="Wrap"
+                           Foreground="{DynamicResource MutedBrush}" />
+              </StackPanel>
+              <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}"
+                        IsChecked="{Binding LocalShowYoutubeTimer}"
+                        VerticalAlignment="Center" Margin="0,4,0,0" />
+            </Grid>
+
+            <Separator Margin="0,2,0,12" />
+
+            <!-- New-tab style (extension) -->
+            <Grid Margin="0,0,0,12">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <StackPanel Margin="0,0,16,0">
+                <TextBlock Text="Guardi new-tab page" Style="{StaticResource LocalSectionLabel}" />
+                <TextBlock Text="The Guardi-styled new tab in the browser. Off shows the plain browser new tab." TextWrapping="Wrap"
+                           Foreground="{DynamicResource MutedBrush}" />
+              </StackPanel>
+              <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}"
+                        IsChecked="{Binding LocalStyledNewTabPage}"
+                        VerticalAlignment="Center" Margin="0,4,0,0" />
+            </Grid>
+
+            <!-- Website badge (extension) -->
+            <Grid Margin="0,0,0,12">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <StackPanel Margin="0,0,16,0">
+                <TextBlock Text="Badge on websites" Style="{StaticResource LocalSectionLabel}" />
+                <TextBlock Text="The little Guardi indicator shown on web pages." TextWrapping="Wrap"
+                           Foreground="{DynamicResource MutedBrush}" />
+              </StackPanel>
+              <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}"
+                        IsChecked="{Binding LocalShowWebsiteBadge}"
+                        VerticalAlignment="Center" Margin="0,4,0,0" />
+            </Grid>
+
+            <TextBlock Text="The new-tab page and website badge live in the browser extension — they update shortly after saving, once the browser picks up the change."
+                       Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12" />
+
+            <Button Content="Save" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left"
+                    Command="{Binding SaveLocalSectionCommand}" Padding="18,8" />
+          </StackPanel>
+        </Border>
+
         <!-- Security -->
         <Border Style="{StaticResource LocalSectionBox}"
                 Visibility="{Binding IsLocalSecuritySection, Converter={StaticResource BoolToVisibility}}">
@@ -1067,30 +1168,6 @@
                         Margin="0,4,0,0" />
             </Grid>
             <Separator Margin="0,2,0,14" />
-            <Grid Margin="0,0,0,12">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-              </Grid.ColumnDefinitions>
-              <StackPanel Margin="0,0,16,0">
-                <TextBlock Text="{x:Static prof:LocalModeCopy.WidgetRemindersTitle}" Style="{StaticResource LocalSectionLabel}" />
-                <TextBlock Text="{x:Static prof:LocalModeCopy.WidgetRemindersHint}"
-                           TextWrapping="Wrap"
-                           Foreground="{DynamicResource MutedBrush}" />
-              </StackPanel>
-              <CheckBox Grid.Column="1"
-                        Style="{StaticResource ToggleSwitch}"
-                        IsChecked="{Binding LocalWidgetRemindersEnabled}"
-                        VerticalAlignment="Center"
-                        Margin="0,4,0,0" />
-            </Grid>
-            <StackPanel Margin="0,0,0,12">
-              <TextBlock Text="{x:Static prof:LocalModeCopy.WidgetRemindersFrequencyLabel}" Style="{StaticResource LocalSectionLabel}" />
-              <TextBox Text="{Binding LocalWidgetReminderFrequencyMinutes, UpdateSourceTrigger=PropertyChanged}"
-                       Width="120"
-                       HorizontalAlignment="Left"
-                       IsEnabled="{Binding LocalWidgetRemindersEnabled}" />
-            </StackPanel>
             <TextBlock Text="Sub nickname" Style="{StaticResource LocalSectionLabel}" />
             <TextBlock Text="Used in greetings, like &quot;Hi, {name}!&quot;. Leave blank to keep the current one."
                        Foreground="{DynamicResource MutedBrush}"

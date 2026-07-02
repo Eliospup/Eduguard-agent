@@ -415,6 +415,11 @@ internal static class UiCopy
     public const string SoftLimitReminderFormat =
         "{0} reached its limit — Guardi's leaving it open and trusting you. Trust slips if you keep going.";
 
+    // Shown in the gaming/YouTube HUD countdown once the limit is exhausted, instead of a
+    // frozen "00:00" timer. In Trusted Sub the app keeps running (soft enforcement), so the
+    // HUD stays up — this makes it read as spent rather than a stuck clock.
+    public const string HudTimesUpLabel = "Time's up!";
+
     // Fullscreen soft warning (Trusted Sub only) when the global screen-time limit is hit —
     // not a lock, but the Sub has to actively click through it rather than it being silent.
     public const string SoftLimitWarningTitle = "Time's up for today!";

@@ -419,9 +419,11 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
     public bool ShowWidgetScreenTime => IsEnrolled || IsLocalMode;
 
     public string WidgetScreenTimeRemaining =>
-        !ShowWidgetScreenTime || ScreenTimeUsedMinutes >= ScreenTimeLimitMinutes
+        !ShowWidgetScreenTime
             ? "0m"
-            : FormatDuration(TimeSpan.FromMinutes(Math.Max(0, ScreenTimeLimitMinutes - ScreenTimeUsedMinutes)));
+            : ScreenTimeUsedMinutes >= ScreenTimeLimitMinutes
+                ? UiCopy.HudTimesUpLabel
+                : FormatDuration(TimeSpan.FromMinutes(Math.Max(0, ScreenTimeLimitMinutes - ScreenTimeUsedMinutes)));
 
     public bool WidgetScreenTimeExhausted =>
         ShowWidgetScreenTime && ScreenTimeUsedMinutes >= ScreenTimeLimitMinutes;
@@ -1215,6 +1217,11 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
         if (!string.IsNullOrEmpty(reason))
             managed["youtubeBlockReason"] = reason;
 
+        // Appearance (global): let the extension hide its own visible surfaces without
+        // changing enforcement. The blur/filtering still runs; only the chrome is hidden.
+        managed["styledNewTab"] = _localSettings.Catalog.StyledNewTabPage;
+        managed["websiteBadge"] = _localSettings.Catalog.ShowWebsiteBadge;
+
         // Web-content category keywords for the extension's hostname heuristic (catches
         // sites not in the curated hosts-file list). Curated domains are already blocked
         // at DNS level, so only the keyword tokens need to travel to the browser.
@@ -1546,6 +1553,7 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
         OnPropertyChanged(nameof(ShowWidgetScreenTime));
         OnPropertyChanged(nameof(WidgetScreenTimeRemaining));
         OnPropertyChanged(nameof(WidgetScreenTimeExhausted));
+        OnPropertyChanged(nameof(DesktopWidgetVisible));
         NotifySupervisionPresentationChanged();
     }
 

@@ -132,6 +132,8 @@ internal sealed class LocalSettingsService
         _catalog.ImageShieldEnabled = _imageShieldPolicy.GlobalEnabled;
         _catalog.YouTubeRestrictedModeEnabled = _youtube.RestrictedModeEnabled;
         _catalog.BlueLightFilterEnabled = _bedtime.Settings.BlueLightFilterEnabled;
+        _catalog.ShowGamingTimer = _gaming.ShowPlaytimeOverlay;
+        _catalog.ShowYoutubeTimer = _youtube.ShowOverlay;
         _catalog.BlockedHosts = _urlBlocking.BlockedHosts.ToList();
         _catalog.BlockedApps = _sessionState.GetBlockedAppsExcept(AppBlockCategory.VpnShield).ToList();
         EnsureExitPinSeeded();
@@ -252,6 +254,12 @@ internal sealed class LocalSettingsService
 
     public void ApplyGlobalSettings()
     {
+        // Appearance is global and overrides the per-mode overlay flags: it is the single
+        // source of truth for whether the on-screen timers are drawn. Applied after the
+        // per-mode gaming/youtube ApplySettings in ApplyActiveMode, so the global value wins.
+        _gaming.SetShowPlaytimeOverlay(_catalog.ShowGamingTimer);
+        _youtube.SetShowOverlay(_catalog.ShowYoutubeTimer);
+
         var payload = ToImageShieldPayload();
         _imageShieldPolicy.ApplyLocal(payload);
 
@@ -414,6 +422,7 @@ internal sealed class LocalSettingsService
         new() { Key = "study", Title = "Study time", Subtitle = "Block games during study hours.", IconGlyph = "📖" },
         new() { Key = "discipline", Title = "Discipline", Subtitle = "Auto-escalation on rule-breaking.", IconGlyph = "⚖️" },
         new() { Key = "image_shield", Title = "Image Shield", Subtitle = "NSFW blur — Firefox today, per mode & browser.", IconGlyph = "👁️" },
+        new() { Key = "appearance", Title = "Appearance", Subtitle = "Hide Guardi's on-screen visuals: widget, timers, badges.", IconGlyph = "🎨" },
         new() { Key = "security", Title = "Security", Subtitle = "Exit PIN and more.", IconGlyph = "🔒" },
     ];
 }

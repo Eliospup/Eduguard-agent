@@ -71,6 +71,7 @@ internal sealed partial class MainViewModel
     public bool IsLocalBlocklistSection => _localSectionKey == "blocklist";
     public bool IsLocalControlSection => _localSectionKey == "control";
     public bool IsLocalScreenshotsSection => _localSectionKey == "screenshots";
+    public bool IsLocalAppearanceSection => _localSectionKey == "appearance";
 
     public bool HasLocalSyncWarning => !string.IsNullOrWhiteSpace(_localSyncWarning);
 
@@ -318,6 +319,51 @@ internal sealed partial class MainViewModel
     }
 
     private bool _localBlueLightFilterEnabled = true;
+
+    // --- Appearance section (global visual toggles) ------------------------
+    public bool LocalShowDesktopWidget
+    {
+        get => _localShowDesktopWidget;
+        set => SetField(ref _localShowDesktopWidget, value);
+    }
+
+    private bool _localShowDesktopWidget = true;
+
+    public bool LocalShowGamingTimer
+    {
+        get => _localShowGamingTimer;
+        set => SetField(ref _localShowGamingTimer, value);
+    }
+
+    private bool _localShowGamingTimer = true;
+
+    public bool LocalShowYoutubeTimer
+    {
+        get => _localShowYoutubeTimer;
+        set => SetField(ref _localShowYoutubeTimer, value);
+    }
+
+    private bool _localShowYoutubeTimer = true;
+
+    public bool LocalStyledNewTabPage
+    {
+        get => _localStyledNewTabPage;
+        set => SetField(ref _localStyledNewTabPage, value);
+    }
+
+    private bool _localStyledNewTabPage = true;
+
+    public bool LocalShowWebsiteBadge
+    {
+        get => _localShowWebsiteBadge;
+        set => SetField(ref _localShowWebsiteBadge, value);
+    }
+
+    private bool _localShowWebsiteBadge = true;
+
+    /// <summary>Live flag the desktop widget window binds its visibility to.</summary>
+    public bool DesktopWidgetVisible =>
+        (IsEnrolled || IsLocalMode) && _localSettings.Catalog.ShowDesktopWidget;
 
     public int LocalGamingLimitMinutes
     {
@@ -1072,6 +1118,7 @@ internal sealed partial class MainViewModel
         OnPropertyChanged(nameof(IsLocalBlocklistSection));
         OnPropertyChanged(nameof(IsLocalControlSection));
         OnPropertyChanged(nameof(IsLocalScreenshotsSection));
+        OnPropertyChanged(nameof(IsLocalAppearanceSection));
         OnPropertyChanged(nameof(HeaderCenterTitle));
         OnPropertyChanged(nameof(HeaderCenterSubtitle));
         OnPropertyChanged(nameof(HomeGreetingTitle));
@@ -1137,6 +1184,11 @@ internal sealed partial class MainViewModel
         LocalSubDisplayName = _subProfile.DisplayName ?? string.Empty;
         LocalWidgetRemindersEnabled = catalog.DesktopWidgetRemindersEnabled;
         LocalWidgetReminderFrequencyMinutes = Math.Clamp(catalog.DesktopWidgetReminderFrequencyMinutes, 1, 180);
+        LocalShowDesktopWidget = catalog.ShowDesktopWidget;
+        LocalShowGamingTimer = catalog.ShowGamingTimer;
+        LocalShowYoutubeTimer = catalog.ShowYoutubeTimer;
+        LocalStyledNewTabPage = catalog.StyledNewTabPage;
+        LocalShowWebsiteBadge = catalog.ShowWebsiteBadge;
         LocalScreenshotInterval = catalog.ScreenshotIntervalMinutes;
         LocalPunishmentEnabled = catalog.PunishmentEnabled;
         LocalPunishmentThresholdTrustedToSub = catalog.PunishmentThresholdTrustedToSub > 0
@@ -1342,12 +1394,22 @@ internal sealed partial class MainViewModel
                     return;
                 }
 
+                _localSettings.SaveCatalog();
+                OnPropertyChanged(nameof(ExitPinRequired));
+                break;
+
+            case "appearance":
+                _localSettings.Catalog.ShowDesktopWidget = LocalShowDesktopWidget;
+                _localSettings.Catalog.ShowGamingTimer = LocalShowGamingTimer;
+                _localSettings.Catalog.ShowYoutubeTimer = LocalShowYoutubeTimer;
+                _localSettings.Catalog.StyledNewTabPage = LocalStyledNewTabPage;
+                _localSettings.Catalog.ShowWebsiteBadge = LocalShowWebsiteBadge;
                 _localSettings.Catalog.DesktopWidgetRemindersEnabled = LocalWidgetRemindersEnabled;
                 LocalWidgetReminderFrequencyMinutes = Math.Clamp(LocalWidgetReminderFrequencyMinutes, 1, 180);
                 _localSettings.Catalog.DesktopWidgetReminderFrequencyMinutes = LocalWidgetReminderFrequencyMinutes;
                 _localSettings.SaveCatalog();
                 SyncWidgetPromptScheduler(restartCountdown: true);
-                OnPropertyChanged(nameof(ExitPinRequired));
+                OnPropertyChanged(nameof(DesktopWidgetVisible));
                 break;
 
             case "screenshots":
