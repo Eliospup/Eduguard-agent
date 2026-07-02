@@ -2,6 +2,6 @@
   "chromiumExtensionId": "pooilkajkfmogajdafmaphmjecofpbbk",
   "chromeUpdateUrl": "https://clients2.google.com/service/update2/crx",
   "firefoxAddonId": "image-shield@guardi.app",
-  "firefoxInstallUrl": "https://github.com/Eliospup/Eduguard-agent/releases/download/extension-v0.8.41/guardi-image-shield.xpi",
-  "version": "0.8.41"
+  "firefoxInstallUrl": "https://github.com/Eliospup/Eduguard-agent/releases/download/extension-v0.8.42/guardi-image-shield.xpi",
+  "version": "0.8.42"
 }
