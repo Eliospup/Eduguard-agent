@@ -43,7 +43,7 @@ internal static partial class Config
         "https://clients2.google.com/service/update2/crx";
     public const string ImageShieldFirefoxAddonId = "image-shield@guardi.app";
     public const string ImageShieldFirefoxInstallUrl =
-        "https://github.com/Eliospup/Eduguard-agent/releases/download/extension-v0.8.40/guardi-image-shield.xpi";
+        "https://github.com/Eliospup/Eduguard-agent/releases/download/extension-v0.8.41/guardi-image-shield.xpi";
 
     // --- Extension enforcement (mandatory install + anti-tamper) -----------
     // Master switch for the guard that detects, force-installs and enforces the
