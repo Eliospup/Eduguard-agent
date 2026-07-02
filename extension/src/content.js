@@ -78,7 +78,7 @@ function shouldFilterThisPage() {
 }
 
 function shouldShowStatusBanner() {
-  return canFilterFrame && (isGoogleImages || isGoogleWebSearch());
+  return canFilterFrame && (isGoogleImages || isGoogleWebSearch()) && currentManaged?.websiteBadge !== false;
 }
 
 function contextValid() {
