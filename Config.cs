@@ -40,7 +40,7 @@ internal static partial class Config
     // extension/store-config.json (see docs/EXTENSION_STORE_PUBLISHING.md).
     public const string ImageShieldExtensionId = "pooilkajkfmogajdafmaphmjecofpbbk";
     public const string ImageShieldChromeUpdateUrl =
-        "https://github.com/Eliospup/Eduguard-agent/releases/download/extension-v0.8.43/updates.xml";
+        "https://clients2.google.com/service/update2/crx";
     public const string ImageShieldFirefoxAddonId = "image-shield@guardi.app";
     public const string ImageShieldFirefoxInstallUrl =
         "https://github.com/Eliospup/Eduguard-agent/releases/download/extension-v0.8.43/guardi-image-shield.xpi";

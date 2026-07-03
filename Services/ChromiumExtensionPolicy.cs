@@ -121,11 +121,13 @@ internal sealed class ChromiumExtensionPolicy
                     ApplyForcelist(root, extensionId, updateUrl, values, keysCreated);
                 }
 
-                // Force-installing an extension does NOT make Chrome/Edge run it in Incognito
-                // windows — that needs the separate per-extension ExtensionSettings policy.
-                // Without this, a supervised user opening an Incognito/InPrivate window gets
-                // zero filtering: no image shield, no blocked search, nothing. Real bypass.
-                ApplyIncognitoSettings(root, extensionId, values, keysCreated);
+                // The ExtensionSettings dict policy is the modern, authoritative install channel
+                // (it also carries Incognito access). It MUST declare installation_mode +
+                // update_url: a per-extension ExtensionSettings entry WITHOUT installation_mode
+                // silently downgrades the extension to "allowed", which overrides
+                // ExtensionInstallForcelist — Chrome then registers the id but never fetches the
+                // CRX. This was why self-hosted force-install did nothing on recent Chrome.
+                ApplyExtensionSettings(root, extensionId, updateUrl, values, keysCreated);
 
                 ApplyManagedSettings(root, extensionId, settings, values, keysCreated);
             }
@@ -275,16 +277,19 @@ internal sealed class ChromiumExtensionPolicy
     }
 
     /// <summary>
-    /// Sets the per-extension "incognito_mode": "spanning" entry inside the ExtensionSettings
-    /// dict policy, so Guardi runs in Incognito/InPrivate without the user ever seeing (or
-    /// being able to leave off) the per-extension "Allow in Incognito" toggle. Unlike the
-    /// list-style policies above, ExtensionSettings is a single JSON-string value living on
-    /// the root policy key itself (not a subkey of numbered entries), so existing entries for
-    /// other extensions are parsed and preserved rather than overwritten.
+    /// Writes the per-extension entry inside the ExtensionSettings dict policy — the modern,
+    /// authoritative install channel. It declares <c>installation_mode: force_installed</c> +
+    /// <c>update_url</c> (so Chrome actually fetches and force-installs, self-hosted or Web Store)
+    /// and <c>incognito_mode: spanning</c> (so filtering also covers Incognito/InPrivate, which a
+    /// bare force-install does not). ExtensionSettings is a single JSON-string value on the root
+    /// policy key, so other extensions' entries are parsed and preserved rather than overwritten.
+    /// Setting the entry WITHOUT installation_mode downgrades it to "allowed" and cancels the
+    /// forcelist, so the three fields are kept in sync here.
     /// </summary>
-    private static void ApplyIncognitoSettings(
+    private static void ApplyExtensionSettings(
         string root,
         string extensionId,
+        string? updateUrl,
         List<RegistryStringBackup> values,
         List<string> keysCreated)
     {
@@ -298,14 +303,24 @@ internal sealed class ChromiumExtensionPolicy
         var rawBefore = key.GetValue("ExtensionSettings") as string;
         var settings = ParseJsonObject(rawBefore);
 
+        var forceInstall = !string.IsNullOrWhiteSpace(updateUrl);
+
         if (settings[extensionId] is JsonObject existingEntry
-            && existingEntry["incognito_mode"]?.GetValue<string>() == "spanning")
+            && existingEntry["incognito_mode"]?.GetValue<string>() == "spanning"
+            && (!forceInstall
+                || (existingEntry["installation_mode"]?.GetValue<string>() == "force_installed"
+                    && existingEntry["update_url"]?.GetValue<string>() == updateUrl)))
         {
-            return; // Already set — avoid an unnecessary backup/write entry.
+            return; // Already fully set — avoid an unnecessary backup/write entry.
         }
 
         var entry = settings[extensionId] as JsonObject ?? new JsonObject();
         entry["incognito_mode"] = "spanning";
+        if (forceInstall)
+        {
+            entry["installation_mode"] = "force_installed";
+            entry["update_url"] = updateUrl;
+        }
         settings[extensionId] = entry;
 
         values.Add(new RegistryStringBackup
@@ -318,7 +333,9 @@ internal sealed class ChromiumExtensionPolicy
         });
 
         key.SetValue("ExtensionSettings", settings.ToJsonString(), RegistryValueKind.String);
-        AuditLog.Write($"Chromium policy: enabled Incognito for {extensionId} via ExtensionSettings.");
+        AuditLog.Write(forceInstall
+            ? $"Chromium policy: force_installed {extensionId} via ExtensionSettings (update_url={updateUrl})."
+            : $"Chromium policy: enabled Incognito for {extensionId} via ExtensionSettings.");
     }
 
     private static JsonObject ParseJsonObject(string? raw)
