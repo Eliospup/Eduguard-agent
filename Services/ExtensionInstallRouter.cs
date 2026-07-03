@@ -119,7 +119,9 @@ internal static class ExtensionInstallRouter
     public static string Describe(ExtensionInstallMethod method) => method switch
     {
         ExtensionInstallMethod.ChromiumWebStore =>
-            "Chromium — force-install from Chrome Web Store",
+            ExtensionRuntime.Current?.IsChromiumSelfHosted == true
+                ? "Chromium — force-install from self-hosted CRX (managed policy)"
+                : "Chromium — force-install from Chrome Web Store",
         ExtensionInstallMethod.ChromiumUnpackedSideload =>
             "Chromium — unpacked sideload via --load-extension",
         ExtensionInstallMethod.FirefoxSignedEnterprise =>

@@ -19,6 +19,7 @@
     "prepare:firefox-release": "node scripts/prepare-firefox-release.mjs",
     "publish:firefox": "node scripts/publish-firefox.mjs",
     "release:firefox": "node scripts/release-firefox.mjs",
+    "release:chrome": "node scripts/release-chrome.mjs",
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
   },
   "dependencies": {

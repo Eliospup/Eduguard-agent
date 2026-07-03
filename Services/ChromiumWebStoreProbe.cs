@@ -19,12 +19,20 @@ internal readonly record struct ChromiumWebStoreProbeResult(
     string? Detail);
 
 /// <summary>
-/// Preflight check: is the extension ID actually served by the Chrome Web Store update endpoint?
-/// Avoids closing Chrome when policy is OK but Google has nothing to install yet.
+/// Preflight check: is the extension ID actually served by its configured update endpoint?
+/// Works for both the Chrome Web Store (POST gupdate protocol) and a self-hosted static
+/// <c>updates.xml</c> (plain GET, e.g. a GitHub release asset). Avoids closing Chrome when
+/// the policy is set but the update source has nothing to install yet.
 /// </summary>
 [SupportedOSPlatform("windows")]
 internal static class ChromiumWebStoreProbe
 {
+    private const string WebStoreUpdateUrl = ExtensionRuntimeConfig.ChromeWebStoreUpdateUrl;
+
+    /// <summary>The Chrome Web Store speaks the update2 POST protocol; self-hosted manifests are static GETs.</summary>
+    private static bool IsWebStore(string updateUrl) =>
+        updateUrl.Contains("clients2.google.com", StringComparison.OrdinalIgnoreCase)
+        || updateUrl.Contains("update2/crx", StringComparison.OrdinalIgnoreCase);
     private static readonly HttpClient Http = new()
     {
         Timeout = TimeSpan.FromSeconds(20),
@@ -78,19 +86,21 @@ internal static class ChromiumWebStoreProbe
 
     private static ChromiumWebStoreProbeResult ProbeRemote(string extensionId)
     {
+        var updateUrl = ExtensionRuntime.Current?.ChromeUpdateUrl ?? Config.ImageShieldChromeUpdateUrl;
+        if (string.IsNullOrWhiteSpace(updateUrl))
+            updateUrl = WebStoreUpdateUrl;
+
         try
         {
-            var xml = BuildRequestXml(extensionId);
-            using var content = new StringContent(xml, Encoding.UTF8, "application/xml");
-            using var response = Http.PostAsync(Config.ImageShieldChromeUpdateUrl, content)
-                .GetAwaiter()
-                .GetResult();
+            using var response = IsWebStore(updateUrl)
+                ? PostWebStore(updateUrl, extensionId)
+                : Http.GetAsync(updateUrl).GetAwaiter().GetResult();
 
             var body = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
             if (!response.IsSuccessStatusCode)
             {
                 AuditLog.Write(
-                    $"Chrome Web Store preflight HTTP {(int)response.StatusCode} for {extensionId}.");
+                    $"Chromium extension preflight HTTP {(int)response.StatusCode} for {extensionId} ({updateUrl}).");
                 return new ChromiumWebStoreProbeResult(
                     ChromiumWebStoreListingStatus.Unknown,
                     null,
@@ -101,12 +111,19 @@ internal static class ChromiumWebStoreProbe
         }
         catch (Exception ex)
         {
-            AuditLog.Write($"Chrome Web Store preflight failed for {extensionId}: {ex.Message}");
+            AuditLog.Write($"Chromium extension preflight failed for {extensionId} ({updateUrl}): {ex.Message}");
             return new ChromiumWebStoreProbeResult(
                 ChromiumWebStoreListingStatus.Unknown,
                 null,
                 ex.Message);
         }
+    }
+
+    private static HttpResponseMessage PostWebStore(string updateUrl, string extensionId)
+    {
+        var xml = BuildRequestXml(extensionId);
+        using var content = new StringContent(xml, Encoding.UTF8, "application/xml");
+        return Http.PostAsync(updateUrl, content).GetAwaiter().GetResult();
     }
 
     private static string BuildRequestXml(string extensionId) =>
