@@ -272,6 +272,22 @@ internal static class UiCopy
     public const string ExitPinWrong = "Incorrect PIN.";
     public const string ExitPinLockout = "Too many attempts. Try again in {0}s.";
 
+    // Self-lock: the PIN is intentionally disabled by the user's own choice until the timer ends.
+    public const string SelfLockTitle = "Guardi is watching over you";
+    public const string SelfLockBody =
+        "You locked yourself in for a while. Guardi is looking after this computer — you're not allowed into this part until self-lock ends.";
+    public const string SelfLockRemainingFormat = "Unlocks in {0} — on {1}.";
+    public const string SelfLockDismiss = "Okay";
+
+    // Self-lock activation confirmation (Guardi-styled, replaces the plain Windows MessageBox).
+    public const string SelfLockConfirmTitle = "Lock yourself in?";
+    public const string SelfLockConfirmBodyFormat =
+        "Guardi will hold your exit PIN until {0} — that's {1} from now.";
+    public const string SelfLockConfirmWarning =
+        "While self-lock is on you can't change settings, leave local mode, or quit Guardi. There is no early unlock, not even with the PIN.";
+    public const string SelfLockConfirmYes = "Yes, lock me in";
+    public const string SelfLockConfirmCancel = "Not now";
+
     public const string SubNamePromptTitle = "Let's be friends!";
     public const string SubNamePromptBody = "Tell me your name so I know how to call you!";
     public const string SubNamePromptConfirm = "Let's go!";

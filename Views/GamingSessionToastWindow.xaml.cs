@@ -8,7 +8,7 @@ namespace EduGuardAgent.Views;
 [SupportedOSPlatform("windows")]
 public partial class GamingSessionToastWindow : Window
 {
-    private static readonly TimeSpan VisibleDuration = TimeSpan.FromSeconds(4);
+    private static readonly TimeSpan VisibleDuration = TimeSpan.FromSeconds(6);
     private DispatcherTimer? _hideTimer;
 
     public GamingSessionToastWindow(GamingSessionToast toast)

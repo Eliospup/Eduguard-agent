@@ -1,0 +1,67 @@
+<Window x:Class="EduGuardAgent.Views.SelfLockMessageWindow"
+        x:ClassModifier="internal"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="clr-namespace:EduGuardAgent.Views"
+        Title="Self-lock"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="NoResize"
+        SizeToContent="WidthAndHeight"
+        WindowStartupLocation="CenterOwner"
+        Topmost="True"
+        ShowInTaskbar="False">
+    <Border Background="{StaticResource CardBrush}"
+            CornerRadius="20"
+            Padding="32,28"
+            MinWidth="380"
+            MaxWidth="440"
+            BorderBrush="{StaticResource SkyBorderBrush}"
+            BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect Color="#0369A1"
+                              BlurRadius="24"
+                              ShadowDepth="0"
+                              Opacity="0.35" />
+        </Border.Effect>
+
+        <StackPanel>
+            <Grid HorizontalAlignment="Center" Margin="0,0,0,12">
+                <views:GuardiMascot x:Name="Mascot" Width="82" Height="94" />
+                <views:TrustedSubMascot x:Name="TrustedSubMascotIcon" Width="82" Height="94" />
+                <views:RestrictedSubMascot x:Name="RestrictedSubMascotIcon" Width="82" Height="94" />
+            </Grid>
+
+            <TextBlock x:Name="TitleText"
+                       FontSize="20"
+                       FontWeight="Bold"
+                       Foreground="{StaticResource PrimaryDarkBrush}"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap" />
+
+            <TextBlock x:Name="BodyText"
+                       FontSize="15"
+                       Foreground="{StaticResource MutedBrush}"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap"
+                       Margin="0,10,0,10" />
+
+            <TextBlock x:Name="RemainingText"
+                       FontSize="14"
+                       FontWeight="SemiBold"
+                       Foreground="{StaticResource PrimaryDarkBrush}"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap"
+                       Margin="0,0,0,18" />
+
+            <Button x:Name="DismissButton"
+                    Style="{StaticResource PrimaryButton}"
+                    Click="OnDismissClick"
+                    HorizontalAlignment="Center"
+                    Padding="28,12"
+                    FontSize="14"
+                    FontWeight="SemiBold" />
+        </StackPanel>
+    </Border>
+</Window>

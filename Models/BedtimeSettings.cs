@@ -87,17 +87,33 @@ internal sealed class BedtimeSettings
 
     public bool IsInLockWindow(DateTime moment)
     {
+        var now = TimeOnly.FromDateTime(moment);
+
+        // Today's window, counted from where it STARTS today:
+        //  • same-day window (bedtime < wake): locked while bedtime <= now < wake;
+        //  • overnight window (bedtime > wake): only the EVENING part starts today (now >= bedtime).
+        //    Its morning tail belongs to the next calendar day and is handled by the yesterday
+        //    check below — attributing it to today (now < today's wake) is what made a day with an
+        //    override (e.g. "off" yesterday, or a different wake time) lock at the wrong moment.
         var (enabled, bedtime, wake) = Resolve(moment);
-        if (enabled && IsInLockWindow(TimeOnly.FromDateTime(moment), bedtime, wake))
-            return true;
+        if (enabled && bedtime != wake)
+        {
+            if (bedtime < wake)
+            {
+                if (now >= bedtime && now < wake)
+                    return true;
+            }
+            else if (now >= bedtime)
+            {
+                return true;
+            }
+        }
 
-        // Overnight lock started yesterday may still apply this morning.
-        var yesterday = moment.AddDays(-1);
-        var (yEnabled, yBedtime, yWake) = Resolve(yesterday);
-        if (!yEnabled || yBedtime <= yWake)
-            return false;
-
-        return TimeOnly.FromDateTime(moment) < yWake;
+        // Morning carryover: an overnight lock that started YESTERDAY is still active until
+        // yesterday's wake this morning. Using yesterday's own wake (not today's) is what makes
+        // per-day overrides with different wake times release at the right time.
+        var (yEnabled, yBedtime, yWake) = Resolve(moment.AddDays(-1));
+        return yEnabled && yBedtime > yWake && now < yWake;
     }
 
     public string DisplayLabel
@@ -193,11 +209,26 @@ internal sealed class BedtimeSettings
 
     public DateTime GetNextWakeAt(DateTime now)
     {
+        var nowT = TimeOnly.FromDateTime(now);
+        var today = DateOnly.FromDateTime(now);
+
+        // Morning carryover from yesterday's overnight lock → unlocks at yesterday's wake, today.
+        var (yEnabled, yBedtime, yWake) = Resolve(now.AddDays(-1));
+        if (yEnabled && yBedtime > yWake && nowT < yWake)
+            return today.ToDateTime(yWake);
+
         var (enabled, bedtime, wake) = Resolve(now);
-        if (!enabled)
+        if (!enabled || bedtime == wake)
             return now;
 
-        return GetNextWakeAt(now, bedtime, wake);
+        if (bedtime < wake)
+        {
+            // Same-day window: unlocks at wake today (only meaningful while inside it).
+            return nowT >= bedtime && nowT < wake ? today.ToDateTime(wake) : now;
+        }
+
+        // Overnight window: the evening part locks until tomorrow's wake.
+        return nowT >= bedtime ? today.AddDays(1).ToDateTime(wake) : now;
     }
 
     public static TimeSpan TimeUntilWake(DateTime now, TimeOnly bedtime, TimeOnly wake)
@@ -209,11 +240,9 @@ internal sealed class BedtimeSettings
 
     public TimeSpan TimeUntilWake(DateTime now)
     {
-        var (enabled, bedtime, wake) = Resolve(now);
-        if (!enabled)
-            return TimeSpan.Zero;
-
-        return TimeUntilWake(now, bedtime, wake);
+        var wakeAt = GetNextWakeAt(now);
+        var remaining = wakeAt - now;
+        return remaining < TimeSpan.Zero ? TimeSpan.Zero : remaining;
     }
 
     private static string FormatTime(TimeOnly time) =>

@@ -272,5 +272,112 @@ internal static class BrowserCatalog
             ["cent"] = "Cent Browser",
             ["coccoc"] = "Cốc Cốc",
             ["epicbrowser"] = "Epic Privacy Browser",
+            // Gecko / Firefox forks (Tor is handled separately by image path — it ships as
+            // firefox.exe and cannot be matched by process name without hitting real Firefox).
+            ["mullvadbrowser"] = "Mullvad Browser",
+            ["floorp"] = "Floorp",
+            ["basilisk"] = "Basilisk",
+            ["seamonkey"] = "SeaMonkey",
+            ["icecat"] = "GNU IceCat",
+            ["kmeleon"] = "K-Meleon",
+            // Chromium forks / privacy & niche browsers.
+            ["thorium"] = "Thorium",
+            ["brave-portable"] = "Brave (portable)",
+            ["ungoogled-chromium"] = "Ungoogled Chromium",
+            ["catsxp"] = "CatsXP",
+            ["whale"] = "Naver Whale",
+            ["sleipnir"] = "Sleipnir",
+            ["lunascape"] = "Lunascape",
+            ["slimbrowser"] = "SlimBrowser",
+            ["otter"] = "Otter Browser",
+            ["midori"] = "Midori",
+            ["falkon"] = "Falkon",
+            ["qutebrowser"] = "qutebrowser",
+            ["dooble"] = "Dooble",
+            ["colibri"] = "Colibri",
+            ["ghostbrowser"] = "Ghost Browser",
+            ["blisk"] = "Blisk",
+            ["min"] = "Min",
+            ["torch"] = "Torch",
+            ["superbird"] = "Superbird",
+            ["coowon"] = "Coowon",
+            ["orbitum"] = "Orbitum",
+            ["amigo"] = "Amigo",
+            ["kometa"] = "Kometa",
+            ["citrio"] = "Citrio",
+            ["chedot"] = "Chedot",
+            ["sputnik"] = "Sputnik",
+            // Vendor "secure" Chromium re-skins that ignore our extension policy.
+            ["avastbrowser"] = "Avast Secure Browser",
+            ["avgbrowser"] = "AVG Secure Browser",
+            ["ccleanerbrowser"] = "CCleaner Browser",
+            ["dragon"] = "Comodo Dragon",
+            ["icedragon"] = "Comodo IceDragon",
+            // Chinese-market browsers with their own extension stores.
+            ["360se"] = "360 Secure Browser",
+            ["360chrome"] = "360 Extreme Browser",
+            ["qqbrowser"] = "QQ Browser",
+            ["sogouexplorer"] = "Sogou Explorer",
+            ["liebao"] = "Liebao",
+            ["baidubrowser"] = "Baidu Browser",
         };
+
+    /// <summary>
+    /// PE OriginalFilename values for unsupported browsers.  Maps the OriginalFilename
+    /// (as preserved in the PE version-info even when the exe is renamed) to a display
+    /// name for the block notification.  This catches renamed browser executables.
+    /// </summary>
+    public static readonly IReadOnlyDictionary<string, string> UnsupportedOriginalFilenames =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["opera.exe"] = "Opera",
+            ["opera_gx.exe"] = "Opera GX",
+            ["vivaldi.exe"] = "Vivaldi",
+            ["browser.exe"] = "Yandex",
+            ["chromium.exe"] = "Chromium",
+            ["iron.exe"] = "SRWare Iron",
+            ["maxthon.exe"] = "Maxthon",
+            ["slimjet.exe"] = "Slimjet",
+            ["ucbrowser.exe"] = "UC Browser",
+            ["waterfox.exe"] = "Waterfox",
+            ["palemoon.exe"] = "Pale Moon",
+            ["librewolf.exe"] = "LibreWolf",
+            ["mullvadbrowser.exe"] = "Mullvad Browser",
+            ["floorp.exe"] = "Floorp",
+            ["basilisk.exe"] = "Basilisk",
+            ["seamonkey.exe"] = "SeaMonkey",
+            ["brave.exe"] = "Brave",
+            ["thorium.exe"] = "Thorium",
+            ["whale.exe"] = "Naver Whale",
+            ["qutebrowser.exe"] = "qutebrowser",
+            ["midori.exe"] = "Midori",
+            ["falkon.exe"] = "Falkon",
+            ["min.exe"] = "Min",
+            ["torch.exe"] = "Torch",
+            ["dragon.exe"] = "Comodo Dragon",
+            ["icedragon.exe"] = "Comodo IceDragon",
+            ["avastbrowser.exe"] = "Avast Secure Browser",
+            ["avgbrowser.exe"] = "AVG Secure Browser",
+            ["ccleanerbrowser.exe"] = "CCleaner Browser",
+            ["epicbrowser.exe"] = "Epic Privacy Browser",
+            ["360se.exe"] = "360 Secure Browser",
+            ["360chrome.exe"] = "360 Extreme Browser",
+            ["qqbrowser.exe"] = "QQ Browser",
+            ["sogouexplorer.exe"] = "Sogou Explorer",
+        };
+
+    /// <summary>
+    /// True when <paramref name="imagePath"/> is a Tor Browser (or Tor-based) build. Tor ships
+    /// its own firefox.exe, so it can only be told apart from real Firefox by its install path.
+    /// Blocking it matters because it tunnels all traffic through Tor, routing around the hosts
+    /// blocklist and the family DNS resolver entirely.
+    /// </summary>
+    public static bool IsTorBrowserPath(string imagePath)
+    {
+        var p = imagePath.Replace('/', '\\').ToLowerInvariant();
+        return p.Contains("tor browser")
+            || p.Contains("torbrowser")
+            || p.Contains(@"\tor\browser\")
+            || p.Contains("tor-browser");
+    }
 }

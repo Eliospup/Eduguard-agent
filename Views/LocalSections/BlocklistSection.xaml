@@ -1,0 +1,31 @@
+<UserControl x:Class="EduGuardAgent.Views.LocalSections.BlocklistSection"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:prof="clr-namespace:EduGuardAgent.Profiles">
+  <StackPanel>
+    <Border Style="{StaticResource LocalSectionBox}">
+      <StackPanel>
+        <TextBlock Text="Content categories" Style="{StaticResource LocalSectionLabel}" />
+        <TextBlock Text="Block whole categories of sites at once. Known sites are blocked in every browser, unknown ones are caught automatically by name and page content. Adult also routes DNS through a family filter (millions of sites, updated continuously). Always enforced, in every mode."
+                   Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,10" />
+        <ItemsControl ItemsSource="{Binding LocalWebCategories}" ItemTemplate="{StaticResource LocalWebCategoryTemplate}" />
+      </StackPanel>
+    </Border>
+    <Border Style="{StaticResource LocalSectionBox}">
+      <StackPanel>
+        <TextBlock Text="Block a website" Style="{StaticResource LocalSectionLabel}" />
+        <TextBox Text="{Binding LocalBlockedUrl, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
+        <Button Content="{x:Static prof:LocalModeCopy.BlockUrlButton}" Style="{StaticResource SubtleButton}"
+                Command="{Binding BlockLocalUrlCommand}" HorizontalAlignment="Left" Padding="14,8" />
+      </StackPanel>
+    </Border>
+    <Border Style="{StaticResource LocalSectionBox}">
+      <StackPanel>
+        <TextBlock Text="Block an app (.exe)" Style="{StaticResource LocalSectionLabel}" />
+        <TextBox Text="{Binding LocalBlockedApp, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
+        <Button Content="{x:Static prof:LocalModeCopy.BlockAppButton}" Style="{StaticResource SubtleButton}"
+                Command="{Binding BlockLocalAppCommand}" HorizontalAlignment="Left" Padding="14,8" />
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

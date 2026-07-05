@@ -131,6 +131,34 @@ internal static class VpnBlocklist
 
     public static int TotalHosts => Entries.SelectMany(e => e.Hosts).Distinct(StringComparer.OrdinalIgnoreCase).Count();
 
+    /// <summary>
+    /// PE OriginalFilename values for known VPN executables.  These are preserved
+    /// in the version-info resource even when the exe is renamed on disk.
+    /// </summary>
+    public static readonly HashSet<string> KnownOriginalFilenames =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            "nordvpn.exe",
+            "expressvpn.exe", "expressvpndaemon.exe",
+            "surfshark.exe",
+            "protonvpn.exe", "protonvpnservice.exe",
+            "cyberghost.exe",
+            "pia-client.exe", "pia-service.exe",
+            "mullvad-vpn.exe",
+            "windscribe.exe",
+            "hotspotshield.exe", "hss.exe",
+            "tunnelbear.exe",
+            "openvpn.exe", "openvpn-gui.exe",
+            "wireguard.exe",
+            "warp-cli.exe", "cloudflarewarp.exe",
+            "vyprvpn.exe",
+            "purevpn.exe",
+            "ivpn.exe",
+            "strongvpn.exe",
+            "ipvanish.exe",
+            "hideme.exe",
+        };
+
     private static readonly HashSet<string> ManagedHosts = BuildManagedHostSet();
 
     public static bool IsManagedHost(string host)

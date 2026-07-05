@@ -58,6 +58,18 @@ internal static class ExtensionStoreConfigLoader
             return;
         }
 
+        // Unlisted Web Store extensions don't respond to the anonymous Google Update
+        // protocol (POST to clients2.google.com) — only Chrome's own update client
+        // with a session token can fetch them.  When we've explicitly marked the
+        // extension as published, trust that and skip the probe entirely.
+        if (Config.ChromiumExtensionPublished)
+        {
+            AuditLog.Write(
+                $"Chromium extension preflight skipped — {cfg.ChromiumExtensionId} " +
+                "marked as published (unlisted extensions are invisible to the anonymous probe).");
+            return;
+        }
+
         var probe = ChromiumWebStoreProbe.Check(cfg.ChromiumExtensionId);
         switch (probe.Status)
         {
@@ -65,14 +77,12 @@ internal static class ExtensionStoreConfigLoader
                 AuditLog.Write(
                     $"Chromium extension preflight OK — {cfg.ChromiumExtensionId}" +
                     (probe.StoreVersion is { } v ? $" v{v}" : "") +
-                    $" ({(cfg.IsChromiumSelfHosted ? "self-hosted CRX" : "Web Store")}).");
+                    " (Web Store).");
                 break;
             case ChromiumWebStoreListingStatus.NotListed:
                 AuditLog.Write(
                     $"Chromium extension preflight: {cfg.ChromiumExtensionId} not available yet ({probe.Detail ?? "noupdate"}).");
-                log?.Invoke(cfg.IsChromiumSelfHosted
-                    ? "Chrome policy is ready, but the self-hosted CRX/updates.xml isn't reachable yet — Chrome won't be blocked."
-                    : "Chrome policy is ready, but the extension isn't on the Chrome Web Store yet — Chrome won't be blocked.");
+                log?.Invoke("Chrome policy is ready, but the extension isn't on the Chrome Web Store yet — Chromium browsers will be blocked until published.");
                 break;
             default:
                 AuditLog.Write(
@@ -89,7 +99,7 @@ internal static class ExtensionStoreConfigLoader
             && !ChromiumUnpackedMode.IsActive)
         {
             parts.Add(
-                "Chrome Web Store ID missing in store-config.json (set ExtensionGuardEnforceChromium=false while review is pending).");
+                "Chrome Web Store ID missing in store-config.json — Chromium browsers are blocked until the extension is published.");
         }
 
         if (Config.ExtensionGuardEnforceFirefox
@@ -149,7 +159,7 @@ internal static class ExtensionStoreConfigLoader
             if (ChromiumUnpackedMode.IsActive)
                 modes.Add("Chromium unpacked (--load-extension)");
             else if (cfg.IsChromiumReady)
-                modes.Add($"Chrome {cfg.ChromiumExtensionId} ({(cfg.IsChromiumSelfHosted ? "self-hosted CRX" : "Web Store")})");
+                modes.Add($"Chrome {cfg.ChromiumExtensionId} (Web Store)");
         }
 
         if (Config.ExtensionGuardEnforceFirefox)

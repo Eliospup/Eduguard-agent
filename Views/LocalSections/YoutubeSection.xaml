@@ -1,0 +1,35 @@
+<UserControl x:Class="EduGuardAgent.Views.LocalSections.YoutubeSection"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:prof="clr-namespace:EduGuardAgent.Profiles"
+             xmlns:views="clr-namespace:EduGuardAgent.Views">
+  <StackPanel>
+    <Border Style="{StaticResource LocalSectionBox}">
+      <StackPanel>
+        <TextBlock Text="Daily YouTube limit — minutes" Style="{StaticResource LocalSectionLabel}" />
+        <views:MinuteStepper Minutes="{Binding LocalYoutubeLimitMinutes, Mode=TwoWay}" Step="15" Max="1440" HorizontalAlignment="Left" />
+        <TextBlock Text="Time counts when a YouTube tab is in the foreground."
+                   Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,10,0,0" TextWrapping="Wrap" />
+      </StackPanel>
+    </Border>
+    <Border Style="{StaticResource LocalSectionBox}">
+      <StackPanel>
+        <TextBlock Text="Weekly overrides — minutes per day" Style="{StaticResource LocalSectionLabel}" />
+        <TextBlock Text="Optional. Each day defaults to the daily limit. Toggle a day to override."
+                   Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,6" />
+        <ItemsControl ItemsSource="{Binding LocalYoutubeWeekly}" ItemTemplate="{StaticResource LocalWeeklyDayTemplate}" />
+      </StackPanel>
+    </Border>
+    <Border Style="{StaticResource LocalSectionBox}">
+      <Grid>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+        <StackPanel Margin="0,0,16,0">
+          <TextBlock Text="{x:Static prof:LocalModeCopy.YoutubeRestrictedModeEnabled}" Style="{StaticResource LocalSectionLabel}" />
+          <TextBlock Text="{x:Static prof:LocalModeCopy.YoutubeRestrictedModeHint}"
+                     Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" />
+        </StackPanel>
+        <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding LocalYoutubeRestrictedModeEnabled}" VerticalAlignment="Center" />
+      </Grid>
+    </Border>
+  </StackPanel>
+</UserControl>

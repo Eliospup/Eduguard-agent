@@ -29,10 +29,6 @@ internal static class ChromiumWebStoreProbe
 {
     private const string WebStoreUpdateUrl = ExtensionRuntimeConfig.ChromeWebStoreUpdateUrl;
 
-    /// <summary>The Chrome Web Store speaks the update2 POST protocol; self-hosted manifests are static GETs.</summary>
-    private static bool IsWebStore(string updateUrl) =>
-        updateUrl.Contains("clients2.google.com", StringComparison.OrdinalIgnoreCase)
-        || updateUrl.Contains("update2/crx", StringComparison.OrdinalIgnoreCase);
     private static readonly HttpClient Http = new()
     {
         Timeout = TimeSpan.FromSeconds(20),
@@ -92,9 +88,7 @@ internal static class ChromiumWebStoreProbe
 
         try
         {
-            using var response = IsWebStore(updateUrl)
-                ? PostWebStore(updateUrl, extensionId)
-                : Http.GetAsync(updateUrl).GetAwaiter().GetResult();
+            using var response = PostWebStore(updateUrl, extensionId);
 
             var body = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
             if (!response.IsSuccessStatusCode)

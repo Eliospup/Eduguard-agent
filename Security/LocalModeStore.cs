@@ -4,32 +4,54 @@ namespace EduGuardAgent.Security;
 
 internal sealed class LocalModeStore
 {
-    private static readonly string SettingsPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        Config.AgentDataDir,
-        "local_mode.json");
+    private const string FileName = "local_mode.json";
+
+    // Written by LocalSettingsCatalogStore once local supervision is configured. If it exists,
+    // a missing/tampered local_mode file is a "disable supervision by deleting the flag" bypass
+    // rather than an online-mode install, so we fail closed to Enabled.
+    private const string CatalogConfiguredMarker = ".catalog_configured";
 
     public StoredLocalMode Load()
     {
-        if (!File.Exists(SettingsPath))
-            return StoredLocalMode.Default;
+        var status = SecureStateFile.Read(FileName, out var json);
 
-        try
+        if (status == StateReadStatus.Ok)
         {
-            var json = File.ReadAllText(SettingsPath);
-            return JsonSerializer.Deserialize<StoredLocalMode>(json) ?? StoredLocalMode.Default;
+            try
+            {
+                return JsonSerializer.Deserialize<StoredLocalMode>(json) ?? FailClosedOrDefault();
+            }
+            catch
+            {
+                status = StateReadStatus.Tampered;
+            }
         }
-        catch
+
+        if (status == StateReadStatus.Tampered)
         {
-            return StoredLocalMode.Default;
+            AuditLog.Write("SECURITY: local-mode flag failed integrity check — failing closed.");
+            return FailClosedOrDefault();
         }
+
+        // Missing: fail closed to Enabled if local supervision was ever configured.
+        return FailClosedOrDefault();
     }
 
     public void Save(StoredLocalMode stored)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath)!);
-        File.WriteAllText(SettingsPath, JsonSerializer.Serialize(stored));
+        SecureStateFile.Write(FileName, JsonSerializer.Serialize(stored));
     }
+
+    /// <summary>
+    /// When the local settings catalog has been configured, a missing or tampered local-mode
+    /// flag must not silently drop the machine out of supervision — assume it is still on. On a
+    /// never-configured (fresh or online-only) install there is no catalog marker, so we keep
+    /// the disabled default.
+    /// </summary>
+    private static StoredLocalMode FailClosedOrDefault() =>
+        SecureStateFile.Exists(CatalogConfiguredMarker)
+            ? new StoredLocalMode { Enabled = true, EnabledAt = DateTimeOffset.UtcNow }
+            : StoredLocalMode.Default;
 
     internal sealed class StoredLocalMode
     {

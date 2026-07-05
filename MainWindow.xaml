@@ -5,6 +5,7 @@
         xmlns:views="clr-namespace:EduGuardAgent.Views"
         xmlns:prof="clr-namespace:EduGuardAgent.Profiles"
         Title="EduGuard"
+        Icon="Assets/guardi.ico"
         WindowStyle="None"
         ResizeMode="CanResize"
         Width="1180"
@@ -313,16 +314,41 @@
                                        Margin="0,0,0,6" />
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
                                 <TextBlock FontSize="42"
-                                           FontWeight="Bold"
-                                           Foreground="{DynamicResource PrimaryBrush}">
+                                           FontWeight="Bold">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding WidgetScreenTimeExhausted}" Value="True">
+                                                    <Setter Property="Foreground" Value="{DynamicResource NeonRedBrush}" />
+                                                    <Setter Property="Effect">
+                                                        <Setter.Value>
+                                                            <DropShadowEffect Color="Red" BlurRadius="16" ShadowDepth="0" Opacity="0.5" />
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
                                     <Run Text="{Binding WidgetScreenTimeRemaining, Mode=OneWay}" />
                                 </TextBlock>
-                                <TextBlock Text=" left"
-                                           FontSize="18"
+                                <TextBlock FontSize="18"
                                            FontWeight="SemiBold"
-                                           Foreground="{DynamicResource MutedBrush}"
                                            VerticalAlignment="Bottom"
-                                           Margin="6,0,0,8" />
+                                           Margin="6,0,0,8">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                                            <Setter Property="Text" Value=" left" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding WidgetScreenTimeExhausted}" Value="True">
+                                                    <Setter Property="Foreground" Value="{DynamicResource NeonRedBrush}" />
+                                                    <Setter Property="Text" Value=" over" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
                             </StackPanel>
                             <TextBlock Text="{Binding InfractionsGood}"
                                        Foreground="#EC4899"
@@ -650,14 +676,22 @@
                                                                        Foreground="{DynamicResource MutedBrush}"
                                                                        FontSize="11"
                                                                        HorizontalAlignment="Right" />
-                                                            <Border Background="{DynamicResource WarningBrush}"
-                                                                    CornerRadius="999"
-                                                                    Padding="7,2"
-                                                                    Margin="0,4,0,0"
+                                                            <Border Background="#26FF1744"
+                                                                    BorderBrush="#FF2D55"
+                                                                    BorderThickness="1.2"
+                                                                    CornerRadius="6"
+                                                                    Padding="9,3"
+                                                                    Margin="0,5,0,0"
                                                                     HorizontalAlignment="Right"
                                                                     Visibility="{Binding ShowTrustPointsLost, Converter={StaticResource BoolToVisibility}}">
+                                                                <Border.Effect>
+                                                                    <DropShadowEffect Color="#FF2D55"
+                                                                                      BlurRadius="14"
+                                                                                      ShadowDepth="0"
+                                                                                      Opacity="0.9" />
+                                                                </Border.Effect>
                                                                 <TextBlock Text="{Binding TrustPointsLostText}"
-                                                                           Foreground="White"
+                                                                           Foreground="#FF6B85"
                                                                            FontSize="10"
                                                                            FontWeight="Bold" />
                                                             </Border>

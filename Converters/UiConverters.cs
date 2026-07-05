@@ -5,25 +5,6 @@ using System.Windows.Media;
 
 namespace EduGuardAgent;
 
-internal sealed class ProgressWidthConverter : IMultiValueConverter
-{
-    public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
-    {
-        if (values.Length < 2
-            || values[0] is not double used
-            || values[1] is not double total
-            || total <= 0)
-            return 0.0;
-
-        var parentWidth = parameter is double width ? width : 200.0;
-        var ratio = Math.Clamp(used / total, 0, 1);
-        return parentWidth * ratio;
-    }
-
-    public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture) =>
-        throw new NotSupportedException();
-}
-
 internal sealed class LevelStepBackgroundConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
@@ -167,6 +148,14 @@ internal sealed class LocaleFlexibleDoubleConverter : IValueConverter
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
     {
         var text = (value as string)?.Trim().Replace(',', '.');
+        if (string.IsNullOrEmpty(text))
+            return Binding.DoNothing;
+
+        // "0." or "1." are valid intermediate states while the user is typing a decimal.
+        // Pushing them to the source would round-trip through Convert and erase the trailing dot.
+        if (text.EndsWith('.'))
+            return Binding.DoNothing;
+
         return double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
             ? parsed
             : Binding.DoNothing;

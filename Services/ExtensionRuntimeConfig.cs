@@ -16,9 +16,9 @@ internal sealed record ExtensionRuntimeConfig(
     public const string ChromeWebStoreUpdateUrl = "https://clients2.google.com/service/update2/crx";
 
     /// <summary>
-    /// Ready when the extension ID is set AND the update source is a real HTTPS endpoint
-    /// (the Chrome Web Store, or a self-hosted static updates.xml). A localhost/dev URL is
-    /// treated as not-ready so we never write a policy pointing at a machine-local server.
+    /// Ready when the extension ID is set AND the update source is the Chrome Web Store over
+    /// HTTPS. A localhost/dev URL is treated as not-ready so we never write a policy pointing
+    /// at a machine-local server.
     /// </summary>
     public bool IsChromiumReady =>
         !string.IsNullOrWhiteSpace(ChromiumExtensionId)
@@ -27,11 +27,6 @@ internal sealed record ExtensionRuntimeConfig(
         && ChromeUpdateUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
         && !ChromeUpdateUrl.Contains("127.0.0.1", StringComparison.OrdinalIgnoreCase)
         && !ChromeUpdateUrl.Contains("localhost", StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>True when Chromium installs from a self-hosted CRX rather than the Chrome Web Store.</summary>
-    public bool IsChromiumSelfHosted =>
-        IsChromiumReady
-        && !ChromeUpdateUrl.Contains("clients2.google.com", StringComparison.OrdinalIgnoreCase);
 
     public bool IsFirefoxStoreReady =>
         !string.IsNullOrWhiteSpace(FirefoxInstallUrl)

@@ -1,30 +1,38 @@
 using System.Text.Json;
 using EduGuardAgent.Models;
+using EduGuardAgent.Security;
 
 namespace EduGuardAgent.Services;
 
 /// <summary>
-/// Persists which web-content categories are blocked. Lives under %APPDATA%\EduGuard,
-/// so it is removed cleanly on uninstall (nothing stays blocked). The curated domains
-/// themselves are never persisted here — only the enabled category keys — so the list
-/// stays small and is recomputed from the catalog each session.
+/// Persists which web-content categories are blocked. Stored encrypted + tamper-evident in the
+/// hardened secure-state folder so a supervised user can't disable the adult-content filter by
+/// editing the file. Only the enabled category keys are persisted — the curated domains are
+/// recomputed from the catalog each session. Fails closed (everything blocked) on tampering.
 /// </summary>
 internal sealed class WebCategorySettingsStore
 {
-    private static readonly string StorePath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        Config.AgentDataDir,
-        "web_categories.json");
+    private const string FileName = "web_categories.json";
 
     public HashSet<string> Load()
     {
         var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        if (!File.Exists(StorePath))
+
+        var status = SecureStateFile.Read(FileName, out var json);
+
+        if (status == StateReadStatus.Tampered)
+        {
+            AuditLog.Write("SECURITY: web-category settings failed integrity check — failing closed to all categories blocked.");
+            foreach (var category in WebCategoryCatalog.All)
+                set.Add(category.Key);
+            return set;
+        }
+
+        if (status != StateReadStatus.Ok)
             return set;
 
         try
         {
-            var json = File.ReadAllText(StorePath);
             var keys = JsonSerializer.Deserialize<List<string>>(json);
             if (keys is null)
                 return set;
@@ -45,13 +53,11 @@ internal sealed class WebCategorySettingsStore
 
     public void Save(IEnumerable<string> enabledKeys)
     {
-        var dir = Path.GetDirectoryName(StorePath)!;
-        Directory.CreateDirectory(dir);
         var keys = enabledKeys
             .Where(WebCategoryCatalog.IsKnown)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(k => k, StringComparer.OrdinalIgnoreCase)
             .ToList();
-        File.WriteAllText(StorePath, JsonSerializer.Serialize(keys));
+        SecureStateFile.Write(FileName, JsonSerializer.Serialize(keys));
     }
 }

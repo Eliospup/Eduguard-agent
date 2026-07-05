@@ -74,6 +74,13 @@ internal static class ExtensionGuardCopy
               "Either sign the extension on addons.mozilla.org (free, unlisted) " +
               "or install Firefox Developer Edition for local testing.");
 
+    public static ExtensionGuardState ChromiumStoreBlocked(IReadOnlyList<string> browsers) => new(
+        ExtensionGuardPhase.Unsupported,
+        browsers,
+        "Let's use a shielded browser 🧸",
+        $"{UiCopy.MascotName} can't put his picture-shield on {Join(browsers)}, so it stays closed. " +
+        "Please use Chrome or Firefox instead. 💙");
+
     public static ExtensionGuardState StorePending(IReadOnlyList<string> browsers) => new(
         ExtensionGuardPhase.StorePending,
         browsers,

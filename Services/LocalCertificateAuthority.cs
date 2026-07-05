@@ -170,6 +170,50 @@ internal sealed class LocalCertificateAuthority : IDisposable
             store.Add(rootCa);
     }
 
+    /// <summary>Subject of the root CA Guardi installs — used to find and remove it on uninstall.</summary>
+    private const string RootSubject = "CN=EduGuard Supervision Root";
+
+    /// <summary>
+    /// Removes every EduGuard root certificate from the machine trust store so an uninstall
+    /// leaves no trusted CA behind. Best-effort; safe when none is present. Runs elevated.
+    /// </summary>
+    public static void RemoveFromTrustStore()
+    {
+        try
+        {
+            using var store = new X509Store(StoreName.Root, StoreLocation.LocalMachine);
+            store.Open(OpenFlags.ReadWrite);
+
+            var ours = store.Certificates
+                .Cast<X509Certificate2>()
+                .Where(c => string.Equals(c.Subject, RootSubject, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            foreach (var cert in ours)
+            {
+                try
+                {
+                    store.Remove(cert);
+                }
+                catch
+                {
+                    // Best-effort per cert.
+                }
+                finally
+                {
+                    cert.Dispose();
+                }
+            }
+
+            if (ours.Count > 0)
+                AuditLog.Write($"Removed {ours.Count} EduGuard root certificate(s) from the trust store.");
+        }
+        catch (Exception ex)
+        {
+            AuditLog.Write($"Root CA removal failed during uninstall: {ex.Message}");
+        }
+    }
+
     public void Dispose()
     {
         foreach (var cert in _leafCerts.Values)

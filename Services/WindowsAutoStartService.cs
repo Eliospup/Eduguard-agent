@@ -12,8 +12,11 @@ internal static class WindowsAutoStartService
 {
     public const string TaskName = "GuardiAgent";
 
-    /// <summary>Seconds after logon before launching — lets the desktop shell finish starting.</summary>
-    private const int LogonDelaySeconds = 15;
+    /// <summary>Seconds after logon before launching — a short grace for the desktop shell to
+    /// finish starting. Kept small so supervision resumes quickly after a reboot; the app is
+    /// resilient to the tray/notification area not being ready yet (it creates the tray icon
+    /// lazily), so it doesn't need a long wait.</summary>
+    private const int LogonDelaySeconds = 5;
 
     public static bool IsRegistered() => RunSchtasks($"/Query /TN \"{TaskName}\" /FO LIST", out _) == 0;
 

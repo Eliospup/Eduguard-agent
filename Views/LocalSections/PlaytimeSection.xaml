@@ -1,0 +1,45 @@
+<UserControl x:Class="EduGuardAgent.Views.LocalSections.PlaytimeSection"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:EduGuardAgent.Views">
+  <StackPanel>
+    <Border Style="{StaticResource LocalSectionBox}">
+      <StackPanel>
+        <TextBlock Text="Daily play limit — minutes" Style="{StaticResource LocalSectionLabel}" />
+        <views:MinuteStepper Minutes="{Binding LocalGamingLimitMinutes, Mode=TwoWay}" Step="15" Max="1440" HorizontalAlignment="Left" />
+      </StackPanel>
+    </Border>
+    <Border Style="{StaticResource LocalSectionBox}">
+      <StackPanel>
+        <TextBlock Text="Weekly overrides — minutes per day" Style="{StaticResource LocalSectionLabel}" />
+        <TextBlock Text="Optional. Toggle a day to override."
+                   Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,6" />
+        <ItemsControl ItemsSource="{Binding LocalGamingWeekly}" ItemTemplate="{StaticResource LocalWeeklyDayTemplate}" />
+      </StackPanel>
+    </Border>
+    <Border Style="{StaticResource LocalSectionBox}">
+      <StackPanel>
+        <TextBlock Text="Custom games" Style="{StaticResource LocalSectionLabel}" />
+        <TextBlock Text="Add games not auto-detected by Guardi. Browse or type the .exe filename."
+                   Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,14" />
+        <TextBlock Text="Executable (.exe)" Style="{StaticResource LocalSectionLabel}" Margin="0,0,0,4" />
+        <Grid Margin="0,0,0,10">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="8" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <TextBox Grid.Column="0" Text="{Binding LocalNewGameExe, UpdateSourceTrigger=PropertyChanged}" ToolTip="e.g. mygame.exe" />
+          <Button Grid.Column="2" Content="Browse…" Style="{StaticResource SubtleButton}"
+                  Command="{Binding BrowseLocalCustomGameCommand}" Padding="14,8" />
+        </Grid>
+        <TextBlock Text="Display name" Style="{StaticResource LocalSectionLabel}" Margin="0,0,0,4" />
+        <TextBox Text="{Binding LocalNewGameName, UpdateSourceTrigger=PropertyChanged}"
+                 ToolTip="Name shown in stats (e.g. My Game)" Margin="0,0,0,14" />
+        <Button Content="Add game" Style="{StaticResource PrimaryButton}"
+                Command="{Binding AddLocalCustomGameCommand}" HorizontalAlignment="Left" Padding="18,8" Margin="0,0,0,14" />
+        <ItemsControl ItemsSource="{Binding LocalCustomGames}" ItemTemplate="{StaticResource LocalCustomGameTemplate}" />
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

@@ -90,7 +90,13 @@ internal static class StateProtection
         }
     }
 
-    public static void Write(string path, string content)
+    /// <summary>
+    /// Persists encrypted state. Returns true when the bytes actually reached disk (directly or
+    /// via the guardian), false when persistence failed (e.g. SYSTEM-only folder with no working
+    /// guardian). Callers that must know whether the on-disk copy is current can use the result
+    /// to retry later; most callers ignore it and rely on their in-memory value.
+    /// </summary>
+    public static bool Write(string path, string content)
     {
         var cipher = ProtectedData.Protect(
             Encoding.UTF8.GetBytes(content),
@@ -104,13 +110,14 @@ internal static class StateProtection
         if (ShouldRouteToGuardian())
         {
             if (TryGuardianWrite(path, payload, out var ipcError))
-                return;
+                return true;
             AuditLog.Write($"Secure write via guardian failed ({ipcError}); trying direct.");
         }
 
         try
         {
             WriteDirect(path, payload);
+            return true;
         }
         catch (Exception ex)
         {
@@ -118,6 +125,7 @@ internal static class StateProtection
             // direct write is denied. Persistence is best-effort — never crash the agent over
             // it; the in-memory value stands and the next write retries via the guardian.
             AuditLog.Write($"Secure write to {Path.GetFileName(path)} failed: {ex.Message}");
+            return false;
         }
     }
 

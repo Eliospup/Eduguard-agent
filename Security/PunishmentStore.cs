@@ -1,38 +1,46 @@
 using System.Text.Json;
 using EduGuardAgent.Models;
+using EduGuardAgent.Profiles;
 
 namespace EduGuardAgent.Security;
 
 /// <summary>Persists the punishment state machine (floor level, infraction count, decay timer) and Dom config.</summary>
 internal sealed class PunishmentStore
 {
-    private static readonly string SettingsPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        Config.AgentDataDir,
-        "punishment.json");
+    private const string FileName = "punishment.json";
 
     public StoredPunishment Load()
     {
-        if (!File.Exists(SettingsPath))
-            return StoredPunishment.Default;
+        var status = SecureStateFile.Read(FileName, out var json);
 
-        try
+        if (status == StateReadStatus.Ok)
         {
-            var json = File.ReadAllText(SettingsPath);
-            return JsonSerializer.Deserialize<StoredPunishment>(json) ?? StoredPunishment.Default;
+            try
+            {
+                return JsonSerializer.Deserialize<StoredPunishment>(json) ?? StoredPunishment.Default;
+            }
+            catch
+            {
+                status = StateReadStatus.Tampered;
+            }
         }
-        catch
+
+        if (status == StateReadStatus.Tampered)
         {
-            return StoredPunishment.Default;
+            // Editing this file to restore trust / clear an escalation is a direct bypass, so
+            // fail closed to zero trust at the strictest floor instead of the trusted default.
+            AuditLog.Write("SECURITY: punishment state failed integrity check — failing closed to zero trust / strictest floor.");
+            return StoredPunishment.FailClosed;
         }
+
+        return StoredPunishment.Default;
     }
 
     public void Save(StoredPunishment stored)
     {
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath)!);
-            File.WriteAllText(SettingsPath, JsonSerializer.Serialize(stored));
+            SecureStateFile.Write(FileName, JsonSerializer.Serialize(stored));
         }
         catch
         {
@@ -58,6 +66,7 @@ internal sealed class PunishmentStore
         public double Trust { get; set; } = PunishmentSettings.MaxTrust;
 
         public int RegenPerHour { get; set; } = 5;
+        public int LimitIgnoredCooldownMinutes { get; set; } = 5;
 
         public int WeightVpn { get; set; } = 25;
         public int WeightBypass { get; set; } = 20;
@@ -100,6 +109,14 @@ internal sealed class PunishmentStore
 
         public static StoredPunishment Default => new();
 
+        /// <summary>Safe posture on tamper: zero trust, escalated to the strictest floor.</summary>
+        public static StoredPunishment FailClosed => new()
+        {
+            Trust = 0,
+            FloorIndex = AgentModeRegistry.MaxStrictnessIndex,
+            Enabled = true,
+        };
+
         public PunishmentSettings ToSettings()
         {
             var legacyThreshold = InfractionThreshold > 0 ? InfractionThreshold : 3;
@@ -113,6 +130,7 @@ internal sealed class PunishmentStore
             {
                 Enabled = Enabled,
                 RegenPerHour = RegenPerHour > 0 ? RegenPerHour : 5,
+                LimitIgnoredCooldownMinutes = LimitIgnoredCooldownMinutes > 0 ? LimitIgnoredCooldownMinutes : 5,
                 InfractionWeights = new InfractionWeightSettings
                 {
                     VpnAttempt = WeightVpn > 0 ? WeightVpn : 25,

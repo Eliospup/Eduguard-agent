@@ -298,8 +298,53 @@ internal sealed class FamilyDnsShieldService
     // resolver. Chromium's policy is a registry value; Firefox uses policies.json (merged so
     // the extension-install and SafeSearch blocks written by other services are preserved).
 
+    // Well-known public DoH/DoT resolver IPs. Blocking outbound 443/853 to these forces any
+    // browser or app with hardcoded resolver IPs to fall back to the system resolver (our
+    // family DNS) instead of tunnelling DNS past it. Deliberately EXCLUDES 1.1.1.3 / 1.0.0.3
+    // (the Cloudflare Family resolver we route to). Not exhaustive — CDN-fronted DoH endpoints
+    // (e.g. mozilla.cloudflare-dns.com on shared Cloudflare IPs) can't be IP-blocked without
+    // breaking legitimate sites; those are covered by the per-browser DoH policy + the
+    // unsupported-browser block instead.
+    private const string DohFirewallRuleTcp4 = "Guardi DoH block v4 (TCP)";
+    private const string DohFirewallRuleUdp4 = "Guardi DoH block v4 (UDP)";
+    private const string DohFirewallRuleTcp6 = "Guardi DoH block v6 (TCP)";
+    private const string DohFirewallRuleUdp6 = "Guardi DoH block v6 (UDP)";
+
+    private static readonly string[] DohResolverIpv4 =
+    [
+        // Cloudflare (public + malware-only; family 1.1.1.3/1.0.0.3 intentionally kept open)
+        "1.1.1.1", "1.0.0.1", "1.1.1.2", "1.0.0.2",
+        // Google Public DNS
+        "8.8.8.8", "8.8.4.4",
+        // Quad9
+        "9.9.9.9", "149.112.112.112", "9.9.9.11", "149.112.112.11",
+        // OpenDNS / Cisco
+        "208.67.222.222", "208.67.220.220", "208.67.222.123", "208.67.220.123",
+        // AdGuard DNS
+        "94.140.14.14", "94.140.15.15", "94.140.14.15", "94.140.15.16",
+        // CleanBrowsing
+        "185.228.168.9", "185.228.169.9", "185.228.168.10", "185.228.169.11",
+        // Mullvad
+        "194.242.2.2", "194.242.2.4", "194.242.2.9",
+        // NextDNS anycast
+        "45.90.28.0", "45.90.30.0",
+        // ControlD
+        "76.76.2.0", "76.76.10.0",
+        // DNS.SB
+        "185.222.222.222", "45.11.45.11",
+    ];
+
+    private static readonly string[] DohResolverIpv6 =
+    [
+        "2606:4700:4700::1111", "2606:4700:4700::1001",        // Cloudflare
+        "2001:4860:4860::8888", "2001:4860:4860::8844",        // Google
+        "2620:fe::fe", "2620:fe::9",                            // Quad9
+    ];
+
     private static void ApplyDohLock()
     {
+        ApplyDohFirewallBlock();
+
         foreach (var (root, _) in ChromiumPolicyRoots)
         {
             try
@@ -334,8 +379,32 @@ internal sealed class FamilyDnsShieldService
         }
     }
 
+    private static void ApplyDohFirewallBlock()
+    {
+        // Delete first so re-enabling doesn't stack duplicate rules (netsh allows same-name rules).
+        RemoveDohFirewallBlock();
+
+        var v4 = string.Join(",", DohResolverIpv4);
+        var v6 = string.Join(",", DohResolverIpv6);
+        // DoH is TCP/UDP 443; DoT is TCP 853. v4 and v6 are separate rules so a mixed-family
+        // remoteip list can't get the whole rule rejected on stricter Windows builds.
+        RunNetsh($"advfirewall firewall add rule name=\"{DohFirewallRuleTcp4}\" dir=out action=block protocol=TCP remoteport=443,853 remoteip={v4}");
+        RunNetsh($"advfirewall firewall add rule name=\"{DohFirewallRuleUdp4}\" dir=out action=block protocol=UDP remoteport=443 remoteip={v4}");
+        RunNetsh($"advfirewall firewall add rule name=\"{DohFirewallRuleTcp6}\" dir=out action=block protocol=TCP remoteport=443,853 remoteip={v6}");
+        RunNetsh($"advfirewall firewall add rule name=\"{DohFirewallRuleUdp6}\" dir=out action=block protocol=UDP remoteport=443 remoteip={v6}");
+    }
+
+    /// <summary>Removes the DoH-resolver firewall rules. Safe to call when they don't exist.</summary>
+    public static void RemoveDohFirewallBlock()
+    {
+        foreach (var name in new[] { DohFirewallRuleTcp4, DohFirewallRuleUdp4, DohFirewallRuleTcp6, DohFirewallRuleUdp6 })
+            RunNetsh($"advfirewall firewall delete rule name=\"{name}\"");
+    }
+
     private static void RemoveDohLock()
     {
+        RemoveDohFirewallBlock();
+
         foreach (var (root, _) in ChromiumPolicyRoots)
         {
             try

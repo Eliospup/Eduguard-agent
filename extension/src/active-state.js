@@ -11,6 +11,11 @@ export const MSG_GET_STATE = "guardi:get-state";
 export const MSG_SHIELD_STATE = "guardi:shield-state";
 export const STATE_LOCAL_KEY = "guardiShieldState";
 
+// Last state observed WHILE the agent was reachable. Used to fail closed: if the agent later
+// becomes unreachable (killed), we replay this instead of dropping enforcement. A clean
+// PIN-quit records active:false here during its shutdown window, so it still drops the shield.
+export const LAST_AGENT_STATE_KEY = "guardiLastAgentState";
+
 const ACTIVE_SNAPSHOT_MAX_AGE_MS = 6000;
 
 function runtimeBrowserKey() {
@@ -95,6 +100,24 @@ export function applyManagedTuning(managed, defaults, target) {
   return out;
 }
 
+async function readLastAgentState(api) {
+  try {
+    const data = await api.storage.local.get(LAST_AGENT_STATE_KEY);
+    const value = data?.[LAST_AGENT_STATE_KEY];
+    return value && typeof value === "object" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeLastAgentState(api, active, managed) {
+  try {
+    api.storage.local.set({ [LAST_AGENT_STATE_KEY]: { active: !!active, managed } });
+  } catch {
+    // best-effort; failing to persist only weakens the kill-vs-quit distinction next tick.
+  }
+}
+
 export async function publishShieldState(api, active, managed, ts = Date.now()) {
   const normalizedManaged = normalizeManagedForRuntime(managed, active);
   const normalizedActive = !!active && normalizedManaged.shieldActive === true;
@@ -167,14 +190,31 @@ export function createBackgroundStateWatcher(api, { onChange, pollMs = 2500, get
     const ts = Date.now();
     const agent = await fetchAgentShieldState();
 
-    // Only a STOPPED agent means "no enforcement at all" (fail closed, drop everything).
-    // When the agent is running but the image (blur) shield itself is off, we must still
-    // forward its managed flags: the YouTube time limit + hard block and the web-category
-    // filtering are independent of the blur shield. Previously "shield off" was collapsed
-    // into "inactive" here, which silently dropped youtubeSoftLimit / youtubeBlocked /
-    // youtubeBlockReason / blockedCategory* — so YouTube ran past its limit and category
-    // content scoring went dark whenever the blur shield happened to be off.
+    // The agent is unreachable (stopped OR killed). We must NOT blindly drop enforcement:
+    // simply killing Guardi would otherwise disable the shield. Fail CLOSED by replaying the
+    // last state seen while the agent was reachable. A clean PIN-quit keeps the /shield-state
+    // bridge alive ~4s and broadcasts active:false first, so that legitimately records
+    // active:false here and the shield still drops for the parent. An abrupt kill leaves the
+    // last reachable state active:true, so filtering keeps running until the agent returns.
     if (agent.agentRunning !== true) {
+      const lastKnown = await readLastAgentState(api);
+      if (lastKnown && lastKnown.active === true) {
+        const managed = normalizeManagedForRuntime(lastKnown.managed, true);
+        const next = managed.shieldActive === true;
+        const wasFirstRun = !bootstrapped;
+        active = next;
+        // Republish with a fresh timestamp every tick so content scripts keep enforcing past
+        // their staleness gate even though the agent is no longer pushing updates.
+        publishShieldState(api, active, managed, ts);
+        broadcastShieldState(api, active, managed, ts);
+        lastSnapshot = { active, managed, ts };
+        lastManagedKey = JSON.stringify(managed);
+        if (wasFirstRun) onChange?.(active, managed);
+        bootstrapped = true;
+        return lastSnapshot;
+      }
+
+      // No prior active state (fresh install) or a clean shutdown → genuinely drop enforcement.
       const managed = normalizeManagedForRuntime({ shieldActive: false }, false);
       const wasActive = active;
       active = false;
@@ -184,12 +224,20 @@ export function createBackgroundStateWatcher(api, { onChange, pollMs = 2500, get
       return lastSnapshot;
     }
 
+    // Agent reachable. When it is running but the image (blur) shield itself is off, we still
+    // forward its managed flags: the YouTube time limit + hard block and the web-category
+    // filtering are independent of the blur shield.
     const shieldOn = agent.active === true;
     const managed = normalizeManagedForRuntime(agent.managed || { shieldActive: shieldOn }, shieldOn);
     const next = managed.shieldActive === true;
     const wasFirstRun = !bootstrapped;
     active = next;
     const changed = publishIfChanged(active, managed, ts);
+
+    // Record the last reachable state so the next unreachable tick can tell a kill (keep
+    // enforcing) from a clean quit (drop). Persisted because the MV3 background service worker
+    // can be torn down and lose in-memory state between ticks.
+    writeLastAgentState(api, next, managed);
 
     if (shieldOn) {
       sendExtensionHeartbeat(api, getHeartbeatStatus?.() ?? { shieldActive: active });

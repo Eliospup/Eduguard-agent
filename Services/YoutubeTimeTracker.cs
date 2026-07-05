@@ -38,10 +38,12 @@ internal sealed class YoutubeTimeTracker : IDisposable
     private bool _wasActive;
 
     private readonly Func<bool> _isHardEnforcement;
+    private readonly Func<string>? _exhaustedLabel;
 
-    public YoutubeTimeTracker(Dispatcher dispatcher, StudyTimeService studyTime, Func<bool>? isHardEnforcement = null)
+    public YoutubeTimeTracker(Dispatcher dispatcher, StudyTimeService studyTime, Func<bool>? isHardEnforcement = null, Func<string>? exhaustedLabel = null)
     {
         _isHardEnforcement = isHardEnforcement ?? (() => true);
+        _exhaustedLabel = exhaustedLabel;
         _studyTime = studyTime;
         _timer = new DispatcherTimer(SampleInterval, DispatcherPriority.Normal, OnTick, dispatcher);
         LoadFromStore();
@@ -309,8 +311,9 @@ internal sealed class YoutubeTimeTracker : IDisposable
             hudState = new YoutubeHudState
             {
                 SourceLabel = active.SourceLabel,
-                RemainingLabel = exhausted ? UiCopy.HudTimesUpLabel : FormatCountdown(remaining),
+                RemainingLabel = exhausted ? (_exhaustedLabel?.Invoke() ?? UiCopy.HudTimesUpLabel) : FormatCountdown(remaining),
                 Progress = progress,
+                Exhausted = exhausted,
             };
         }
 

@@ -58,6 +58,10 @@ internal static class SystemGuardian
 
     public static bool TryUninstall(out string? error)
     {
+        // Self-healing mesh: a running guardian recreates a deleted task, so a bare delete would
+        // be undone. Signal an authorized stand-down first so the guardian exits instead.
+        SignalStandDown();
+
         if (!IsInstalled())
         {
             error = null;
@@ -121,18 +125,34 @@ internal static class SystemGuardian
         {
             try
             {
-                // If our task was removed (uninstall/teardown), stand down immediately so no
-                // SYSTEM process lingers until the next reboot.
-                if (!IsInstalled())
+                // Authorized teardown signals a (valid, encrypted) stand-down marker BEFORE it
+                // removes our task. Only then do we exit — so no SYSTEM process lingers after a
+                // real uninstall.
+                if (StandDownRequested())
                 {
-                    AuditLog.Write("SYSTEM guardian task gone — exiting.");
+                    AuditLog.Write("SYSTEM guardian standing down (authorized) — exiting.");
                     ipcCts.Cancel();
                     return;
                 }
 
+                // No stand-down → self-heal the persistence mesh. Deleting a task/service is an
+                // attack, not a stop signal: recreate whatever an admin removed so supervision
+                // can't be permanently disabled by wiping one persistence hook.
+                if (!IsInstalled())
+                {
+                    if (TryInstall(out _))
+                        AuditLog.Write("SECURITY: GuardiSystem task was removed — recreated by the guardian.");
+                }
+
+                if (!BootGuardianService.IsInstalled())
+                {
+                    if (BootGuardianService.TryInstall(out _))
+                        AuditLog.Write("SECURITY: GuardiBoot service was removed — recreated by the guardian.");
+                }
+
                 SecureDataPaths.ReassertAcl();
 
-                if (!StandDownRequested() && !IsAgentRunningInConsole())
+                if (!IsAgentRunningInConsole())
                 {
                     var exePath = Environment.ProcessPath;
                     if (!string.IsNullOrEmpty(exePath))
@@ -153,11 +173,17 @@ internal static class SystemGuardian
         }
     }
 
+    /// <summary>
+    /// True only when a VALID (encrypted) stand-down marker exists. Checking existence alone
+    /// would let an admin disable self-healing by dropping an empty file with that name; requiring
+    /// a well-formed StateProtection blob raises that to forging a DPAPI-LocalMachine value (and
+    /// under lockdown the folder is SYSTEM-only, so an admin can't write it at all).
+    /// </summary>
     private static bool StandDownRequested()
     {
         try
         {
-            return File.Exists(SecureDataPaths.PathFor(StandDownMarker));
+            return StateProtection.TryRead(SecureDataPaths.PathFor(StandDownMarker), out _) == StateReadStatus.Ok;
         }
         catch
         {

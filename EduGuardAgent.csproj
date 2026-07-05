@@ -9,7 +9,7 @@
     <SupportedOSPlatformVersion>7.0</SupportedOSPlatformVersion>
     <UseWPF>true</UseWPF>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <ApplicationIcon />
+    <ApplicationIcon>Assets\guardi.ico</ApplicationIcon>
     <StartupObject>EduGuardAgent.Program</StartupObject>
     <!-- Vulnerability audit hits api.nuget.org; fails as NU1900 when a local proxy is down. -->
     <NuGetAudit>false</NuGetAudit>
@@ -31,6 +31,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Resource Include="Assets\guardi.ico" />
     <Resource Include="Fonts\ChakraPetch-Regular.ttf" />
     <Resource Include="Fonts\ChakraPetch-Medium.ttf" />
     <Resource Include="Fonts\ChakraPetch-SemiBold.ttf" />

@@ -247,6 +247,12 @@ internal sealed class PunishmentSettings
     /// <summary>Trust points regained per hour of clean, supervised time.</summary>
     public int RegenPerHour { get; init; } = 5;
 
+    /// <summary>
+    /// Minutes to wait after a counted "time limit ignored" trust loss before another one can
+    /// count, so a single ignored limit doesn't drain the gauge on every tick.
+    /// </summary>
+    public int LimitIgnoredCooldownMinutes { get; init; } = 5;
+
     /// <summary>Per-kind trust cost of an infraction.</summary>
     public InfractionWeightSettings InfractionWeights { get; init; } = InfractionWeightSettings.Default;
 
@@ -274,6 +280,7 @@ internal sealed class PunishmentSettings
     {
         Enabled = Enabled,
         RegenPerHour = Math.Clamp(RegenPerHour, 1, 100),
+        LimitIgnoredCooldownMinutes = Math.Clamp(LimitIgnoredCooldownMinutes, 1, 240),
         InfractionWeights = InfractionWeights.Sanitized(),
         ThresholdTrustedToSub = Math.Clamp(ThresholdTrustedToSub, 1, 50),
         ThresholdSubToRestricted = Math.Clamp(ThresholdSubToRestricted, 1, 50),
@@ -398,6 +405,9 @@ internal sealed class PunishmentSettingsPayload
 
     [JsonPropertyName("regen_per_hour")]
     public int? RegenPerHour { get; init; }
+
+    [JsonPropertyName("limit_ignored_cooldown_minutes")]
+    public int? LimitIgnoredCooldownMinutes { get; init; }
 
     [JsonPropertyName("infraction_weights")]
     public InfractionWeightsPayload? InfractionWeights { get; init; }

@@ -15,6 +15,7 @@ internal sealed class GamingTimeTracker : IDisposable
     private static readonly TimeSpan MaxSampleGap = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan NoticeCooldown = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan StudyNoticeCooldown = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan InstallScanInterval = TimeSpan.FromMinutes(30);
 
     private readonly DispatcherTimer _timer;
     private readonly GamingUsageStore _store = new();
@@ -40,6 +41,8 @@ internal sealed class GamingTimeTracker : IDisposable
     private DateTimeOffset _lastPersist = DateTimeOffset.MinValue;
     private DateTimeOffset _lastSampleAt = DateTimeOffset.MinValue;
     private DateTimeOffset _lastRunningScan = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastInstallScan = DateTimeOffset.MinValue;
+    private volatile bool _installScanInFlight;
     private string? _lastCountedGameKey;
     private string? _lastForegroundGameKey;
     private HashSet<string> _runningGameKeys = new(StringComparer.OrdinalIgnoreCase);
@@ -47,14 +50,17 @@ internal sealed class GamingTimeTracker : IDisposable
     private volatile bool _runningScanInFlight;
 
     private readonly Func<bool> _isHardEnforcement;
+    private readonly Func<string>? _exhaustedLabel;
 
-    public GamingTimeTracker(Dispatcher dispatcher, StudyTimeService studyTime, Func<bool>? isHardEnforcement = null)
+    public GamingTimeTracker(Dispatcher dispatcher, StudyTimeService studyTime, Func<bool>? isHardEnforcement = null, Func<string>? exhaustedLabel = null)
     {
         _isHardEnforcement = isHardEnforcement ?? (() => true);
+        _exhaustedLabel = exhaustedLabel;
         _studyTime = studyTime;
         _timer = new DispatcherTimer(SampleInterval, DispatcherPriority.Normal, OnTick, dispatcher);
         _games.LoadFromStorage();
         GameCatalog.Bind(_games);
+        RefreshInstalledGamesIfDue(DateTimeOffset.UtcNow);
         LoadFromStore();
         LoadSettingsFromStorage();
         RefreshTodayLimit();
@@ -238,6 +244,7 @@ internal sealed class GamingTimeTracker : IDisposable
 
         var previousRunningGameKeys = _runningGameKeys;
         RefreshRunningGamesIfDue(now, TimeSpan.FromSeconds(2));
+        RefreshInstalledGamesIfDue(now);
         _runningGameKeys = _cachedRunningGames
             .Select(game => game.Key)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -359,6 +366,38 @@ internal sealed class GamingTimeTracker : IDisposable
         });
     }
 
+    /// <summary>
+    /// Periodically re-scans installed games from the launcher manifests (Steam/Epic/GOG/Xbox)
+    /// on the thread pool, so newly-installed titles are auto-recognized without the Dom adding
+    /// them. Registry + file reads are cheap but off the UI thread to be safe.
+    /// </summary>
+    private void RefreshInstalledGamesIfDue(DateTimeOffset now)
+    {
+        if (_lastInstallScan != DateTimeOffset.MinValue && now - _lastInstallScan < InstallScanInterval)
+            return;
+
+        if (_installScanInFlight)
+            return;
+
+        _installScanInFlight = true;
+        _lastInstallScan = now;
+        Task.Run(() =>
+        {
+            try
+            {
+                GameCatalog.ApplyIndex(GameInstallScanner.Scan());
+            }
+            catch
+            {
+                // Best-effort enrichment; detection still works off the static catalog + heuristics.
+            }
+            finally
+            {
+                _installScanInFlight = false;
+            }
+        });
+    }
+
     private bool ShouldAnnounceGameSession(
         string? previousForegroundKey,
         string? currentForegroundKey,
@@ -417,8 +456,9 @@ internal sealed class GamingTimeTracker : IDisposable
             hudState = new GamingHudState
             {
                 GameName = game.DisplayName,
-                RemainingLabel = exhausted ? UiCopy.HudTimesUpLabel : FormatCountdown(globalRemaining),
+                RemainingLabel = exhausted ? (_exhaustedLabel?.Invoke() ?? UiCopy.HudTimesUpLabel) : FormatCountdown(globalRemaining),
                 Progress = Math.Min(progressBase, 100.0),
+                Exhausted = exhausted,
             };
         }
 

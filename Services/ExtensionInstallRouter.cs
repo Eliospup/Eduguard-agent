@@ -15,6 +15,32 @@ internal static class ExtensionInstallRouter
         if (!browser.IsInstalled())
             return ExtensionInstallMethod.NotApplicable;
 
+        // Microsoft Edge and Brave are blocked: neither reliably force-installs the shield from
+        // the Chrome Web Store on a home PC — Edge refuses off-Edge-store force-install on
+        // non-domain machines, and Brave loads the policy but never actually installs the CRX
+        // (known Brave limitation). Guardi keeps no listing on their own stores, so they can
+        // never carry the shield — close them on sight (before the per-browser toggle) and steer
+        // the child to Chrome/Firefox. Dev/unpacked sideload still works for maintainers, so only
+        // block in the real (Web Store) mode.
+        if ((browser.Kind == BrowserKind.Edge || browser.Kind == BrowserKind.Brave)
+            && Config.ExtensionGuardEnforceChromium
+            && !ChromiumUnpackedMode.IsActive)
+        {
+            return ExtensionInstallMethod.ChromiumStoreBlocked;
+        }
+
+        // Hard block: while the Chromium extension isn't published on the Web Store, Guardi
+        // cannot protect Chrome — close it on sight, regardless of any per-mode or per-browser
+        // toggle. This gate is intentionally BEFORE ShouldEnforceBrowser so a disabled toggle
+        // can't leave a Chromium browser open.
+        if (browser.Engine == BrowserEngine.Chromium
+            && Config.ExtensionGuardEnforceChromium
+            && !Config.ChromiumExtensionPublished
+            && !ChromiumUnpackedMode.IsActive)
+        {
+            return ExtensionInstallMethod.ChromiumStoreBlocked;
+        }
+
         if (!ImageShieldPolicy.ShouldEnforceBrowser(browser.Kind))
             return ExtensionInstallMethod.NotApplicable;
 
@@ -37,7 +63,7 @@ internal static class ExtensionInstallRouter
 
         return cfg?.IsChromiumReady == true
             ? ExtensionInstallMethod.ChromiumWebStore
-            : ExtensionInstallMethod.NotApplicable;
+            : ExtensionInstallMethod.ChromiumStoreBlocked;
     }
 
     private static ExtensionInstallMethod ResolveFirefox(ExtensionRuntimeConfig? cfg)
@@ -119,9 +145,7 @@ internal static class ExtensionInstallRouter
     public static string Describe(ExtensionInstallMethod method) => method switch
     {
         ExtensionInstallMethod.ChromiumWebStore =>
-            ExtensionRuntime.Current?.IsChromiumSelfHosted == true
-                ? "Chromium — force-install from self-hosted CRX (managed policy)"
-                : "Chromium — force-install from Chrome Web Store",
+            "Chromium — force-install from Chrome Web Store",
         ExtensionInstallMethod.ChromiumUnpackedSideload =>
             "Chromium — unpacked sideload via --load-extension",
         ExtensionInstallMethod.FirefoxSignedEnterprise =>
@@ -132,6 +156,8 @@ internal static class ExtensionInstallRouter
             "Firefox Developer Edition — dev policy install",
         ExtensionInstallMethod.FirefoxReleaseBlocked =>
             "Firefox Release — unsigned extensions blocked by Mozilla (sign on AMO or install Firefox Developer Edition)",
+        ExtensionInstallMethod.ChromiumStoreBlocked =>
+            "Chromium — extension not yet available on the Chrome Web Store (browser blocked)",
         _ => "not applicable",
     };
 }

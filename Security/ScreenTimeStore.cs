@@ -4,39 +4,42 @@ namespace EduGuardAgent.Security;
 
 internal sealed class ScreenTimeStore
 {
-    private static readonly string UsagePath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        Config.AgentDataDir,
-        "screen_time_usage.json");
+    private const string FileName = "screen_time_usage.json";
 
     public StoredScreenTimeUsage Load(DateOnly today)
     {
-        if (!File.Exists(UsagePath))
-            return StoredScreenTimeUsage.Empty(today);
+        var status = SecureStateFile.Read(FileName, out var json);
 
-        try
+        if (status == StateReadStatus.Ok)
         {
-            var json = File.ReadAllText(UsagePath);
-            var stored = JsonSerializer.Deserialize<StoredScreenTimeUsage>(json);
-            if (stored is null || stored.Date != today.ToString("yyyy-MM-dd"))
-                return StoredScreenTimeUsage.Empty(today);
+            try
+            {
+                var stored = JsonSerializer.Deserialize<StoredScreenTimeUsage>(json);
+                if (stored is null || stored.Date != today.ToString("yyyy-MM-dd"))
+                    return StoredScreenTimeUsage.Empty(today);
 
-            return stored;
+                return stored;
+            }
+            catch
+            {
+                status = StateReadStatus.Tampered;
+            }
         }
-        catch
+
+        if (status == StateReadStatus.Tampered)
         {
-            return StoredScreenTimeUsage.Empty(today);
+            AuditLog.Write("SECURITY: screen-time usage failed integrity check — failing closed to limit reached.");
+            return StoredScreenTimeUsage.Saturated(today);
         }
+
+        return StoredScreenTimeUsage.Empty(today);
     }
 
     public void Save(StoredScreenTimeUsage usage)
     {
         try
         {
-            var dir = Path.GetDirectoryName(UsagePath)!;
-            Directory.CreateDirectory(dir);
-            var json = JsonSerializer.Serialize(usage, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(UsagePath, json);
+            SecureStateFile.Write(FileName, JsonSerializer.Serialize(usage, new JsonSerializerOptions { WriteIndented = true }));
         }
         catch
         {
@@ -47,6 +50,10 @@ internal sealed class ScreenTimeStore
 
 internal sealed class StoredScreenTimeUsage
 {
+    // Fail-closed sentinel: 48h in seconds, larger than any plausible daily limit, so a
+    // tampered ledger is treated as "already fully consumed" instead of resetting to zero.
+    private const double SaturatedSeconds = 48 * 60 * 60;
+
     public string? Date { get; set; }
     public double TotalSeconds { get; set; }
 
@@ -54,5 +61,11 @@ internal sealed class StoredScreenTimeUsage
     {
         Date = today.ToString("yyyy-MM-dd"),
         TotalSeconds = 0,
+    };
+
+    public static StoredScreenTimeUsage Saturated(DateOnly today) => new()
+    {
+        Date = today.ToString("yyyy-MM-dd"),
+        TotalSeconds = SaturatedSeconds,
     };
 }

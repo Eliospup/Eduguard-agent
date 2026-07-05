@@ -170,18 +170,25 @@ function convertToFirefoxManifest(manifest, outdir) {
 }
 
 function writePackIcons(outdir) {
-  // Valid 48x48 blue PNG (Firefox rejects SVG icons for policy/distro install).
+  // Real, spec-compliant PNGs (Guardi teal rounded square with a white "G").
+  // These MUST be valid PNGs with correct chunk CRCs: Chrome's SandboxedUnpacker
+  // decodes every manifest-declared icon and ABORTS the whole install if one fails
+  // to decode ("Could not decode image: icon-48.png"). The previous hand-assembled
+  // 193-byte blob had bad CRCs — GDI+/Firefox tolerated it but Chrome rejected it,
+  // which silently blocked every Chrome Web Store force-install. Do not replace these
+  // with a hand-crafted minimal PNG; regenerate real ones if they ever need changing.
   const png48 = Buffer.from(
-    "iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAACXBIWXMAAAsTAAALEwEAmpwYAAAA" +
-      "B3RJTUUH6Q4WDw4QJ8pL6QAAAARnQU1BAACxjwv8YQUAAAAgY0hSTQAAeiYAAICEAAD6AAAAgOg" +
-      "AAHUwAADqYAAAOpgAABdwnLpRPAAAAERJREFUaEPtwTEBAAAAwqD1T20ND6AAAHwYgAAA" +
-      "AADwYg0AAf4A0C0AAZJ0JAAAAABJRU5ErkJggg==",
+    "iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAJqSURBVGhD7ZmvTyQxHMWR5yDXbjh3SCQSicSQIJHIkyfB4fgTcKxg20kwGDLtKhCQk2DIGRJCEOAIQSBLvgNDZl/b3c7s/GjIvuSj5tvue22ns2nn5maaqV0xLZaZStZ6arDNlNiri4/+krXecLCCvzm15s/6C3wo97kWd1xL0zRMi0euZb93evwLvZRWT8v1zw6tH2qBZ5oZ9BSkbNS17Ds6bR2mhCo9G7GYL/APPXpFy8bRQeewVOygV0u0dDpc82NhSr7RLoieR8R1coANo2IoT9DziGId/RyaBVol6DsTfUSwQYwwLTbReyZ6gMVl2dXSGPNgXDp8NYbr1GpTgb/oPRM9cBQHMc44atog9NcDvWeiB1gcwvk1mS+naULUGuDwgsy/oL8gbdy+WP2FUGsA83SJvpyj6wp6bqju0upzErUFcJni1w9WXY7rPRlX76O2APe36YiZ3ScaUbuuSP6+hNT6qC1Acfnc02he3Fg1TVBLgA0K8HrzFaDqeq5CqwFwmaGq7ESzADm4hbp2lKgDoLmQnQW30k4DuL4DkwxFFYDAZURyfYl9tZ0HcM1CGXUegKgaoop5ovYABK7tcfJtuaE0EiAHvw9FhexSITQaoA2+cYBU7GBxjHgD8FRsYXGMeI8Y6YIBi6MkFVvoPdPvs/4POvmyGkTGokqW0PuX6OwRG8QE0/IKPY+IjhejngXf8ikq1u2UaZmgV6eyd0HLK+ygS+jUvNQ1E10kcCX/Y0cd8Uy3RuhxomgmPq5XrQ5bo9IFH+pnerRKl2zYebOIu8pXrD7R/svU4A+95E1BR/wT78FmikjvHJRfCI91tQUAAAAASUVORK5CYII=",
+    "base64"
+  );
+  const png96 = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAARaSURBVHhe7Z0rbBtBEIYDy1r1bLWshYWFhYElkQoLCwsLG1ZWWBgWg/r2pJKQyndGDkhU2JAoJJIVBTTMigIKrxrbJ7mzd/vy3O6eb37pg96159+dfVia3dtjsVgsFovFYrWkp5Pvb5I82x/m4w9Jnn6JndX3zPYB/Fui1/Dnj+fwAwZTcZLk4u+gEOUukORpnuTjj8/y7CX+zVEIRsugEL/wF99JcnGVFOk7HIMgSor0FYx26Uv2gxmkVxwTb0om6eeaL9VDsqMXs9EjHJ/WBJ0lhcjkL9JrZo9noyc4VuSCTnqT661J58Pp+DWOGZlg5HPw1SRF+qe1nRKnHTOSQvwmXxPggII7YhRMxQmOobMgr0kdMFrIzgo93udvSTrfOhWBi3LDjAWfcEytBAtKTaOMIbArcp4FsJ3CDTL2ON+qwvTBjTH2JNP0G46tkeB4jRtjXEjnOLZG2qX7/NDA/yQ4vkpx/qfFeh2Ae27cSGjKu/PSRId3pfTZ4EzS9zjGSsWw/z+AoD9c4vha6bQEM86ltgNgdx4IvQMyHe2mOn4AIyZSP76AuzQcY6VCXb4dn4myLO9x/Eh0A7Ph7FLq0wedMOD0AoLfrkKZEL0BPoJfKYQJURtgk3ZUudzGRFU7bRCtAYew4Ja3OD6SbLaWpkYMLm6lz7ZFtAaY7HZcAmVirM9ZEKUBJqnHJfim7ftcC6I0QDf6bdJOE7o+Dq7vpc+0QXQG6FIE1QkWzwKfaWeT6AzQLZS+RqYvojNAlRp85mZfRGWA7pKNKv3ERFQG4LyMFSpPt0mnDKDY/cRGVAb0bQEG2IDARGXAzfUEx/w/2Riga0snXws+G9CgXhpAmYLYAAfYAAO1aQDlNpQNcEB3EWdzEGMDHNBdRVDfBanunXppAKAbudv8EYNhA2rQLcQ264AONqAG3TpAmYbYgAZ0achmMVbBBjSgmwUgmzNBHboFv9cGALpZAHI1QXfeAPXeAN0IrWSTjkzbBPXeAMBkpFZSBUy3s6qTqj1KojYAcAkehdiADXyb4Cv4QCcMAEx2RhSiPGmb0BkDKkx2Ry7yHfiKzhlQQWEE5bWGK501YBPT3ZLP3G7KThjQZdiAwLABgWEDAmNvAJclJsXaACgugRth3IEBjWOs1LocvdQQ4wa8qYBjrBTXC6LFul7Quk601BDjBryzgGOsFZesJGOBY2sk3oqSMcKxNVKMZcs6iW25sk1B5VepQcYYqDy51csaoUuXdR3noq2V1u/F8GLsAIx+63qhdYqhgmJHsauUqBK8JFfTAdNELq6cq6bXafl6Ui6upI6YOhatPOSzvp5Y1HTIbDAsxFscOzKtL+nYhAasL91ctHrUJ53jznvOotWRj8Uv6m2wel3V/rJtW61vTOGg1suUBPt8uC/b6qRLoeVsmIqv/XrwITsiOWRRamnE6q/M0a7NiuVoL0QGi2x0gW9S9ZY8/B8KU7WbdPRteRaLxWKxWGr9A6Q75TNKagjWAAAAAElFTkSuQmCC",
     "base64"
   );
   const assetsDir = join(outdir, "assets");
   mkdirSync(assetsDir, { recursive: true });
   writeFileSync(join(assetsDir, "icon-48.png"), png48);
-  writeFileSync(join(assetsDir, "icon-96.png"), png48);
+  writeFileSync(join(assetsDir, "icon-96.png"), png96);
 }
 
 function lintFirefoxBuild(outdir) {
@@ -230,6 +237,12 @@ if (target === "chromium") {
   patchChromiumIcons(manifest);
   patchChromiumManifestKey(manifest);
   manifest.background = { service_worker: "background.js" };
+  // Native new-tab override, same as Firefox. The old scripted redirect relied on
+  // setTimeout inside the MV3 service worker, which Chrome suspends before the timers
+  // fire — so the Guardi new tab often never appeared. A manifest override is handled by
+  // the browser itself (no awake service worker needed) and newtab.html renders neutral
+  // on its own when supervision is inactive (see guardi-newtab-page.js).
+  manifest.chrome_url_overrides = { newtab: "newtab.html" };
 } else {
   writePackIcons(outdir);
   const firefoxManifest = convertToFirefoxManifest(manifest, outdir);

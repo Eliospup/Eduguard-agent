@@ -96,11 +96,13 @@ function forwardToOffscreen(msg) {
   return api.runtime.sendMessage({ ...msg, guardiOffscreen: true });
 }
 
-// Firefox uses the native chrome_url_overrides.newtab instead (see manifest build
-// config) — it can't be toggled, but it keeps the address bar blank, which the
-// scripted redirect below cannot do. newtab.html itself renders neutral when inactive.
+// Chrome now uses the native chrome_url_overrides.newtab (see manifest build config), like
+// Firefox — the browser renders newtab.html itself, no awake service worker required. The old
+// scripted redirect is disabled: it depended on setTimeout inside the MV3 service worker, which
+// Chrome suspends before the timers fire, so the Guardi new tab frequently never appeared.
+// newtab.html renders neutral on its own when supervision is inactive.
 const isFirefox = typeof browser !== "undefined";
-const newTabCtrl = installNewTabRedirect(api, { enabled: !isFirefox });
+const newTabCtrl = installNewTabRedirect(api, { enabled: false });
 const youtubeGuard = installYoutubeTimeGuard(api, () => currentManaged);
 const categoryGuard = installCategoryGuard(api, () => currentManaged);
 

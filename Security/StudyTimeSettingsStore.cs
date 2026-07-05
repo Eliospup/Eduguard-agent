@@ -5,52 +5,53 @@ namespace EduGuardAgent.Security;
 
 internal sealed class StudyTimeSettingsStore
 {
-    private static readonly string SettingsPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        Config.AgentDataDir,
-        "study_time_settings.json");
+    private const string FileName = "study_time_settings.json";
 
     public StudyTimeSettings Load()
     {
-        if (!File.Exists(SettingsPath))
-            return StudyTimeSettings.Default;
+        var status = SecureStateFile.Read(FileName, out var json);
 
-        try
+        if (status == StateReadStatus.Ok)
         {
-            var json = File.ReadAllText(SettingsPath);
-            var stored = JsonSerializer.Deserialize<StoredStudyTimeSettings>(json);
-            if (stored is null)
-                return StudyTimeSettings.Default;
+            try
+            {
+                var stored = JsonSerializer.Deserialize<StoredStudyTimeSettings>(json);
+                if (stored is null)
+                    return StudyTimeSettings.Default;
 
-            return StudyTimeSettings.FromPayload(
-                stored.Enabled,
-                stored.StartTime,
-                stored.EndTime,
-                stored.Days,
-                weekly: stored.Weekly?.ToDictionary(
-                    p => p.Key,
-                    p => new StudyDayPayload
-                    {
-                        Enabled = p.Value.Enabled,
-                        StartTime = p.Value.StartTime,
-                        EndTime = p.Value.EndTime,
-                    },
-                    StringComparer.OrdinalIgnoreCase),
-                blockGames: stored.BlockGames,
-                blockYoutube: stored.BlockYoutube,
-                blockDistractingSites: stored.BlockDistractingSites,
-                blockDistractingApps: stored.BlockDistractingApps);
+                return StudyTimeSettings.FromPayload(
+                    stored.Enabled,
+                    stored.StartTime,
+                    stored.EndTime,
+                    stored.Days,
+                    weekly: stored.Weekly?.ToDictionary(
+                        p => p.Key,
+                        p => new StudyDayPayload
+                        {
+                            Enabled = p.Value.Enabled,
+                            StartTime = p.Value.StartTime,
+                            EndTime = p.Value.EndTime,
+                        },
+                        StringComparer.OrdinalIgnoreCase),
+                    blockGames: stored.BlockGames,
+                    blockYoutube: stored.BlockYoutube,
+                    blockDistractingSites: stored.BlockDistractingSites,
+                    blockDistractingApps: stored.BlockDistractingApps);
+            }
+            catch
+            {
+                status = StateReadStatus.Tampered;
+            }
         }
-        catch
-        {
-            return StudyTimeSettings.Default;
-        }
+
+        if (status == StateReadStatus.Tampered)
+            AuditLog.Write("SECURITY: study-time settings failed integrity check — using defaults (re-driven from the secured catalog).");
+
+        return StudyTimeSettings.Default;
     }
 
     public void Save(StudyTimeSettings settings)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath)!);
-
         var stored = new StoredStudyTimeSettings
         {
             Enabled = settings.Enabled,
@@ -74,7 +75,7 @@ internal sealed class StudyTimeSettingsStore
             BlockDistractingApps = settings.BlockDistractingApps,
         };
 
-        File.WriteAllText(SettingsPath, JsonSerializer.Serialize(stored, new JsonSerializerOptions { WriteIndented = true }));
+        SecureStateFile.Write(FileName, JsonSerializer.Serialize(stored, new JsonSerializerOptions { WriteIndented = true }));
     }
 
     private sealed class StoredStudyTimeSettings

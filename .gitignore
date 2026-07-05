@@ -11,3 +11,5 @@ Github_token.txt
 .nuget-packages/
 .agents/
 .claude/
+installer/output/
+installer/assets/

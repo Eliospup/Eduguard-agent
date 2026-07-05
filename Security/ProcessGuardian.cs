@@ -37,6 +37,8 @@ internal static class ProcessGuardian
 
     private static readonly string MainPidFile = Path.Combine(DataDir, "agent.pid");
     private static readonly string GuardPidFile = Path.Combine(DataDir, "guard.pid");
+    private static readonly string ForceKillMarker = Path.Combine(DataDir, "force_kill.marker");
+    private static readonly string RunningMarker = Path.Combine(DataDir, "running.marker");
 
     private static readonly TimeSpan GuardPollInterval = TimeSpan.FromMilliseconds(250);
     private static EventWaitHandle? _shutdownEvent;
@@ -70,24 +72,55 @@ internal static class ProcessGuardian
 
     // ---------------------------------------------------------------- main role
 
-    public static void StartMainRole()
+    /// <summary>
+    /// Claims the single-instance slot for the interactive agent and, if this process won it,
+    /// starts the mutual-resurrection monitor. Returns <c>false</c> when another main agent is
+    /// already running (a manual relaunch, or a resurrection racing a still-alive instance
+    /// during a slow restart) — the caller must then exit WITHOUT opening a second window or
+    /// starting a second supervision stack, so two Guardi apps can never run at once.
+    /// </summary>
+    public static bool TryStartMainRole()
     {
 #if DEBUG
         // Development escape hatch: set EDUGUARD_NO_GUARD=1 to disable resurrection so the
-        // agent can be stopped from Task Manager while testing.
-        if (string.Equals(Environment.GetEnvironmentVariable("EDUGUARD_NO_GUARD"), "1", StringComparison.Ordinal))
-            return;
+        // agent can be stopped from Task Manager while testing. Still single-instance below.
+        var noGuard = string.Equals(Environment.GetEnvironmentVariable("EDUGUARD_NO_GUARD"), "1", StringComparison.Ordinal);
 #endif
+
+        // Single-instance gate: the first main agent to create the named mutex owns supervision.
+        // A second instance sees createdNew == false and bows out. The mutex object lives only as
+        // long as a handle is open, so when the owner exits the slot frees for a legit relaunch.
+        try
+        {
+            var mutex = new Mutex(initiallyOwned: true, MainMutexName, out var createdNew);
+            if (!createdNew)
+            {
+                mutex.Dispose();
+                AuditLog.Write("Another Guardi agent is already running — this instance is exiting to stay single-instance.");
+                return false;
+            }
+
+            _mainMutexHandle = mutex;
+        }
+        catch
+        {
+            // If the mutex can't be created we can't prove uniqueness; proceed rather than
+            // leave the machine unsupervised (worst case matches the old always-start behavior).
+        }
 
         SecurityRuntimeFlags.EnsureLoadedFromDisk();
 
         // The agent is up: tell the SYSTEM guardian (if installed) to resume guarding.
         SystemGuardian.ClearStandDown();
 
+#if DEBUG
+        if (noGuard)
+            return true;
+#endif
+
         try
         {
             _shutdownEvent = new EventWaitHandle(false, EventResetMode.ManualReset, ShutdownEventName);
-            _mainMutexHandle = new Mutex(initiallyOwned: false, MainMutexName);
             WritePid(MainPidFile);
 
             _monitorThread = new Thread(MainMonitorLoop)
@@ -101,11 +134,14 @@ internal static class ProcessGuardian
         {
             // Self-protection is best-effort; never block startup.
         }
+
+        return true;
     }
 
     public static void SignalIntentionalShutdown()
     {
         _shuttingDown = true;
+        ClearRunningMarker();
 
         // A PIN-authorized quit must also stop the SYSTEM guardian from relaunching us.
         SystemGuardian.SignalStandDown();
@@ -130,6 +166,77 @@ internal static class ProcessGuardian
         {
             // ignored
         }
+
+        // Actively terminate the guard process so it doesn't linger in Task Manager.
+        KillGuardProcess();
+
+        // Stop the Boot Guardian service (it stays installed for next boot).
+        BootGuardianService.Stop();
+    }
+
+    /// <summary>
+    /// Called once at startup. If the running marker exists, the previous instance
+    /// was force-killed (a clean shutdown deletes it). Returns true once, then
+    /// writes a fresh marker for this session.
+    /// </summary>
+    public static bool ConsumeForceKillMarker()
+    {
+        try
+        {
+            var wasForceKilled = File.Exists(RunningMarker);
+
+            // Also check the guard-written marker (belt and suspenders).
+            if (!wasForceKilled && File.Exists(ForceKillMarker))
+                wasForceKilled = true;
+
+            try { File.Delete(ForceKillMarker); } catch { }
+
+            // Write the running marker for this session.
+            Directory.CreateDirectory(DataDir);
+            File.WriteAllText(RunningMarker, DateTimeOffset.UtcNow.ToString("o"));
+
+            return wasForceKilled;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Deletes the running marker on clean shutdown so the next start knows it was clean.</summary>
+    public static void ClearRunningMarker()
+    {
+        try { File.Delete(RunningMarker); } catch { }
+    }
+
+    private static void WriteForceKillMarker()
+    {
+        try
+        {
+            Directory.CreateDirectory(DataDir);
+            File.WriteAllText(ForceKillMarker, DateTimeOffset.UtcNow.ToString("o"));
+            AuditLog.Write("SECURITY: Agent was force-killed — marker written for trust penalty.");
+        }
+        catch { /* best-effort */ }
+    }
+
+    private static void KillGuardProcess()
+    {
+        try
+        {
+            var process = Attach(GuardPidFile);
+            if (process is null)
+                return;
+
+            try
+            {
+                if (!process.HasExited)
+                    process.Kill(entireProcessTree: true);
+            }
+            catch { /* best-effort */ }
+            finally { process.Dispose(); }
+        }
+        catch { /* ignored */ }
     }
 
     private static void MainMonitorLoop()
@@ -201,6 +308,7 @@ internal static class ProcessGuardian
                     if (WaitForIntentionalShutdownGrace())
                         return;
 
+                    WriteForceKillMarker();
                     SpawnMain();
                     WaitForPeer(MainPidFile, TimeSpan.FromSeconds(5));
                     continue;

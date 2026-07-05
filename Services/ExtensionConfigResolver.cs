@@ -25,12 +25,14 @@ internal static class ExtensionConfigResolver
 
     public static bool IsReadyWith(ExtensionRuntimeConfig cfg)
     {
-        var chromiumOk = !Config.ExtensionGuardEnforceChromium || ChromiumInstallResolver.IsInstallReady(cfg);
+        // Chromium readiness no longer gates the whole guard. When the extension is not on
+        // the Web Store yet, Chromium browsers are actively blocked (ChromiumStoreBlocked)
+        // inside ExtensionEnforcementService — the guard still needs to run for Firefox.
         var firefoxOk = !Config.ExtensionGuardEnforceFirefox
             || cfg.IsFirefoxStoreReady
             || (Config.ExtensionGuardFirefoxLocalMode && FirefoxLocalPackager.HasSource()
                 && (FirefoxEditionHelper.CanInstallLocalUnsigned || FirefoxEditionHelper.IsReleaseInstalled()));
 
-        return chromiumOk && firefoxOk;
+        return firefoxOk;
     }
 }

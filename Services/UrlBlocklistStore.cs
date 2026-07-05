@@ -1,13 +1,11 @@
 using System.Text.Json;
+using EduGuardAgent.Security;
 
 namespace EduGuardAgent.Services;
 
 internal sealed class UrlBlocklistStore
 {
-    private static readonly string StorePath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        Config.AgentDataDir,
-        "blocked_hosts.json");
+    private const string FileName = "blocked_hosts.json";
 
     private readonly HashSet<string> _hosts = new(StringComparer.OrdinalIgnoreCase);
 
@@ -18,12 +16,17 @@ internal sealed class UrlBlocklistStore
     public void Load()
     {
         _hosts.Clear();
-        if (!File.Exists(StorePath))
+
+        var status = SecureStateFile.Read(FileName, out var json);
+        if (status != StateReadStatus.Ok)
+        {
+            if (status == StateReadStatus.Tampered)
+                AuditLog.Write("SECURITY: URL blocklist failed integrity check — starting empty (per-mode blocked hosts re-applied from the secured catalog).");
             return;
+        }
 
         try
         {
-            var json = File.ReadAllText(StorePath);
             var hosts = JsonSerializer.Deserialize<List<string>>(json);
             if (hosts is null)
                 return;
@@ -81,10 +84,8 @@ internal sealed class UrlBlocklistStore
 
     private void Save()
     {
-        var dir = Path.GetDirectoryName(StorePath)!;
-        Directory.CreateDirectory(dir);
         var json = JsonSerializer.Serialize(_hosts.OrderBy(h => h).ToList());
-        File.WriteAllText(StorePath, json);
+        SecureStateFile.Write(FileName, json);
     }
 
     public static string? NormalizeHost(string host)

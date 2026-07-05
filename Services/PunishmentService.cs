@@ -19,7 +19,6 @@ internal sealed class PunishmentService : IDisposable
     private static readonly TimeSpan DecayCheckInterval = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan BlockedAppWindow = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan DefaultCooldown = TimeSpan.FromSeconds(30);
-    private static readonly TimeSpan LimitCooldown = TimeSpan.FromMinutes(5);
     private const int BlockedAppThreshold = 3;
     private const int MaxRecentInfractions = 50;
     private const int MaxRecentPersisted = 25;
@@ -136,6 +135,9 @@ internal sealed class PunishmentService : IDisposable
     public void Start() => _active = true;
 
     public void Stop() => _active = false;
+
+    /// <summary>True once <see cref="Start"/> has armed supervision. Infractions register only when active.</summary>
+    public bool IsActive => _active;
 
     public void RegisterInfraction(InfractionKind kind, string key, string detail)
     {
@@ -258,12 +260,37 @@ internal sealed class PunishmentService : IDisposable
             if (kind == InfractionKind.VpnAttempt)
                 return true;
 
-            var cooldown = kind == InfractionKind.LimitIgnored ? LimitCooldown : DefaultCooldown;
+            var cooldown = CooldownFor(kind);
             if (_lastCounted.TryGetValue(bucket, out var last) && now - last < cooldown)
                 return false;
 
             _lastCounted[bucket] = now;
             return true;
+        }
+    }
+
+    private TimeSpan CooldownFor(InfractionKind kind) =>
+        kind == InfractionKind.LimitIgnored
+            ? TimeSpan.FromMinutes(_settings.LimitIgnoredCooldownMinutes)
+            : DefaultCooldown;
+
+    /// <summary>
+    /// Time left before the given (kind, key) bucket can register another trust hit — i.e. how
+    /// long until "kept going" drains trust again. Zero means it would count right now. Used to
+    /// show a "next trust loss" countdown instead of a frozen "time's up" once a soft limit is
+    /// exhausted and the Sub keeps going.
+    /// </summary>
+    public TimeSpan TimeUntilNextInfraction(InfractionKind kind, string key)
+    {
+        var bucket = $"{kind}|{key}";
+
+        lock (_lock)
+        {
+            if (!_lastCounted.TryGetValue(bucket, out var last))
+                return TimeSpan.Zero;
+
+            var remaining = CooldownFor(kind) - (DateTimeOffset.UtcNow - last);
+            return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
         }
     }
 
@@ -316,6 +343,7 @@ internal sealed class PunishmentService : IDisposable
             EscalationHours = payload.EscalationHours ?? current.EscalationHours,
             EscalationMinutes = payload.EscalationMinutes ?? current.EscalationMinutes,
             RegenPerHour = payload.RegenPerHour ?? current.RegenPerHour,
+            LimitIgnoredCooldownMinutes = payload.LimitIgnoredCooldownMinutes ?? current.LimitIgnoredCooldownMinutes,
             InfractionWeights = current.InfractionWeights.Merge(payload.InfractionWeights),
             InfractionKinds = current.InfractionKinds.Merge(payload.InfractionKinds),
             InfractionExtensions = extensions,
@@ -507,6 +535,7 @@ internal sealed class PunishmentService : IDisposable
             InfractionCount = _infractionCount,
             Trust = _trust,
             RegenPerHour = _settings.RegenPerHour,
+            LimitIgnoredCooldownMinutes = _settings.LimitIgnoredCooldownMinutes,
             WeightVpn = _settings.InfractionWeights.VpnAttempt,
             WeightBypass = _settings.InfractionWeights.BypassAttempt,
             WeightBlockedApp = _settings.InfractionWeights.BlockedAppRepeated,

@@ -1,0 +1,111 @@
+<UserControl x:Class="EduGuardAgent.Views.LocalSections.DisciplineSection"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:prof="clr-namespace:EduGuardAgent.Profiles"
+             xmlns:views="clr-namespace:EduGuardAgent.Views">
+  <Border Style="{StaticResource LocalSectionBox}">
+    <StackPanel>
+      <Grid Margin="0,0,0,16">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+        <TextBlock Text="Discipline enabled" VerticalAlignment="Center" FontWeight="SemiBold" />
+        <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding LocalPunishmentEnabled}" />
+      </Grid>
+
+      <TextBlock Text="{x:Static prof:LocalModeCopy.InfractionKindsTitle}" Style="{StaticResource LocalSectionLabel}" />
+      <TextBlock Text="{x:Static prof:LocalModeCopy.InfractionKindsHint}"
+                 Foreground="{DynamicResource MutedBrush}"
+                 FontSize="12"
+                 TextWrapping="Wrap"
+                 Margin="0,0,0,10" />
+      <views:SettingRow Label="{x:Static prof:UiCopy.InfractionLabelVpn}" Description="{x:Static prof:UiCopy.InfractionHintVpn}">
+        <CheckBox Style="{StaticResource ToggleSwitch}" IsChecked="{Binding LocalInfractionVpnEnabled}" />
+      </views:SettingRow>
+      <views:SettingRow Label="{x:Static prof:UiCopy.InfractionLabelBlockedApp}" Description="{x:Static prof:UiCopy.InfractionHintBlockedApp}">
+        <CheckBox Style="{StaticResource ToggleSwitch}" IsChecked="{Binding LocalInfractionBlockedAppEnabled}" />
+      </views:SettingRow>
+      <views:SettingRow Label="{x:Static prof:UiCopy.InfractionLabelBypass}" Description="{x:Static prof:UiCopy.InfractionHintBypass}">
+        <CheckBox Style="{StaticResource ToggleSwitch}" IsChecked="{Binding LocalInfractionBypassEnabled}" />
+      </views:SettingRow>
+      <views:SettingRow Label="{x:Static prof:UiCopy.InfractionLabelLimit}" Description="{x:Static prof:UiCopy.InfractionHintLimit}">
+        <CheckBox Style="{StaticResource ToggleSwitch}" IsChecked="{Binding LocalInfractionLimitEnabled}" />
+      </views:SettingRow>
+      <views:SettingRow Label="{x:Static prof:UiCopy.InfractionLabelStudy}" Description="{x:Static prof:UiCopy.InfractionHintStudy}">
+        <CheckBox Style="{StaticResource ToggleSwitch}" IsChecked="{Binding LocalInfractionStudyEnabled}" />
+      </views:SettingRow>
+      <views:SettingRow Label="{x:Static prof:UiCopy.InfractionLabelBlockedSearch}" Description="{x:Static prof:UiCopy.InfractionHintBlockedSearch}">
+        <CheckBox Style="{StaticResource ToggleSwitch}" IsChecked="{Binding LocalInfractionBlockedSearchEnabled}" />
+      </views:SettingRow>
+
+      <TextBlock Text="Trust meter" Style="{StaticResource LocalSectionLabel}" Margin="0,6,0,0" />
+      <TextBlock Text="{Binding DisciplineProgressText}"
+                 FontWeight="SemiBold"
+                 TextWrapping="Wrap"
+                 Margin="0,0,0,6" />
+      <ProgressBar Value="{Binding TrustValue, Mode=OneWay}" Minimum="0" Maximum="100"
+                   Height="10" Margin="0,0,0,16" />
+
+      <TextBlock Text="Trust cost per slip" FontWeight="SemiBold" Margin="0,0,0,4" />
+      <TextBlock Text="How many trust points each kind of slip costs. Higher = more serious — it drains the meter faster and reaches stricter mode sooner."
+                 Foreground="{DynamicResource MutedBrush}"
+                 FontSize="12"
+                 TextWrapping="Wrap"
+                 Margin="0,0,0,12" />
+
+      <Grid Margin="0,0,0,16">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Grid.Column="0" Text="{x:Static prof:UiCopy.InfractionLabelVpn}" VerticalAlignment="Center" />
+        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding LocalTrustWeightVpn, UpdateSourceTrigger=PropertyChanged}" Width="90" Height="42" Padding="12,0" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Margin="0,0,0,8" />
+
+        <TextBlock Grid.Row="1" Grid.Column="0" Text="{x:Static prof:UiCopy.InfractionLabelBypass}" VerticalAlignment="Center" />
+        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding LocalTrustWeightBypass, UpdateSourceTrigger=PropertyChanged}" Width="90" Height="42" Padding="12,0" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Margin="0,0,0,8" />
+
+        <TextBlock Grid.Row="2" Grid.Column="0" Text="{x:Static prof:UiCopy.InfractionLabelBlockedApp}" VerticalAlignment="Center" />
+        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding LocalTrustWeightBlockedApp, UpdateSourceTrigger=PropertyChanged}" Width="90" Height="42" Padding="12,0" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Margin="0,0,0,8" />
+
+        <TextBlock Grid.Row="3" Grid.Column="0" Text="{x:Static prof:UiCopy.InfractionLabelBlockedSearch}" VerticalAlignment="Center" />
+        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding LocalTrustWeightBlockedSearch, UpdateSourceTrigger=PropertyChanged}" Width="90" Height="42" Padding="12,0" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Margin="0,0,0,8" />
+
+        <TextBlock Grid.Row="4" Grid.Column="0" Text="{x:Static prof:UiCopy.InfractionLabelStudy}" VerticalAlignment="Center" />
+        <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding LocalTrustWeightStudy, UpdateSourceTrigger=PropertyChanged}" Width="90" Height="42" Padding="12,0" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Margin="0,0,0,8" />
+
+        <TextBlock Grid.Row="5" Grid.Column="0" Text="{x:Static prof:UiCopy.InfractionLabelLimit}" VerticalAlignment="Center" />
+        <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding LocalTrustWeightLimit, UpdateSourceTrigger=PropertyChanged}" Width="90" Height="42" Padding="12,0" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" />
+      </Grid>
+
+      <TextBlock Text="Trust regained per clean hour" Style="{StaticResource LocalSectionLabel}" />
+      <TextBlock Text="How fast trust climbs back during good, supervised behaviour. Reaching full trust steps a punished mode back down."
+                 Foreground="{DynamicResource MutedBrush}"
+                 FontSize="12"
+                 TextWrapping="Wrap"
+                 Margin="0,0,0,8" />
+      <TextBox Text="{Binding LocalTrustRegenPerHour, UpdateSourceTrigger=PropertyChanged}" Width="200" HorizontalAlignment="Left" Margin="0,0,0,16" />
+
+      <TextBlock Text="Delay between &quot;time limit ignored&quot; trust losses (minutes)" Style="{StaticResource LocalSectionLabel}" />
+      <TextBlock Text="When a time limit is ignored, wait this many minutes before another trust loss can be counted. Higher = more forgiving; lower = trust drops faster while the limit keeps being ignored."
+                 Foreground="{DynamicResource MutedBrush}"
+                 FontSize="12"
+                 TextWrapping="Wrap"
+                 Margin="0,0,0,8" />
+      <TextBox Text="{Binding LocalPunishmentLimitCooldownMinutes, UpdateSourceTrigger=PropertyChanged}" Width="200" HorizontalAlignment="Left" Margin="0,0,0,16" />
+
+      <StackPanel Orientation="Horizontal" Margin="0,12,0,4">
+        <Button Content="{x:Static prof:LocalModeCopy.ClearPunishmentButton}" Style="{StaticResource SubtleButton}"
+                Command="{Binding ClearLocalPunishmentCommand}" Padding="18,8" />
+      </StackPanel>
+      <TextBlock Text="Clears the active punishment level, infraction count, and de-escalation timer."
+                 Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" />
+    </StackPanel>
+  </Border>
+</UserControl>

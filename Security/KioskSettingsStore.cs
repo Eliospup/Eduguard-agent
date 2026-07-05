@@ -4,34 +4,35 @@ namespace EduGuardAgent.Security;
 
 internal sealed class KioskSettingsStore
 {
-    private static readonly string SettingsPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        Config.AgentDataDir,
-        "kiosk_settings.json");
+    private const string FileName = "kiosk_settings.json";
 
     public StoredKioskSettings Load()
     {
-        if (!File.Exists(SettingsPath))
-            return StoredKioskSettings.Empty;
+        var status = SecureStateFile.Read(FileName, out var json);
 
-        try
+        if (status == StateReadStatus.Ok)
         {
-            var json = File.ReadAllText(SettingsPath);
-            return JsonSerializer.Deserialize<StoredKioskSettings>(json) ?? StoredKioskSettings.Empty;
+            try
+            {
+                return JsonSerializer.Deserialize<StoredKioskSettings>(json) ?? StoredKioskSettings.Empty;
+            }
+            catch
+            {
+                status = StateReadStatus.Tampered;
+            }
         }
-        catch
-        {
-            return StoredKioskSettings.Empty;
-        }
+
+        if (status == StateReadStatus.Tampered)
+            AuditLog.Write("SECURITY: kiosk settings failed integrity check — using empty approved-app list.");
+
+        return StoredKioskSettings.Empty;
     }
 
     public void Save(StoredKioskSettings settings)
     {
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath)!);
-            var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(SettingsPath, json);
+            SecureStateFile.Write(FileName, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
         }
         catch
         {

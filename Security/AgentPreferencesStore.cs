@@ -5,32 +5,32 @@ namespace EduGuardAgent.Security;
 
 internal sealed class AgentPreferencesStore
 {
-    private static readonly string PreferencesPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        Config.AgentDataDir,
-        "agent_preferences.json");
+    private const string FileName = "agent_preferences.json";
 
     public AgentPreferences Load()
     {
-        if (!File.Exists(PreferencesPath))
-            return new AgentPreferences();
+        var status = SecureStateFile.Read(FileName, out var json);
 
-        try
+        if (status == StateReadStatus.Ok)
         {
-            var json = File.ReadAllText(PreferencesPath);
-            return JsonSerializer.Deserialize<AgentPreferences>(json) ?? new AgentPreferences();
+            try
+            {
+                return JsonSerializer.Deserialize<AgentPreferences>(json) ?? new AgentPreferences();
+            }
+            catch
+            {
+                status = StateReadStatus.Tampered;
+            }
         }
-        catch
-        {
-            return new AgentPreferences();
-        }
+
+        if (status == StateReadStatus.Tampered)
+            AuditLog.Write("SECURITY: agent preferences failed integrity check — using defaults.");
+
+        return new AgentPreferences();
     }
 
     public void Save(AgentPreferences preferences)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(PreferencesPath)!);
-        File.WriteAllText(
-            PreferencesPath,
-            JsonSerializer.Serialize(preferences, new JsonSerializerOptions { WriteIndented = true }));
+        SecureStateFile.Write(FileName, JsonSerializer.Serialize(preferences, new JsonSerializerOptions { WriteIndented = true }));
     }
 }

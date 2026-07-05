@@ -1,0 +1,68 @@
+<UserControl x:Class="EduGuardAgent.Views.LocalSections.SecuritySection"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:prof="clr-namespace:EduGuardAgent.Profiles">
+  <Border Style="{StaticResource LocalSectionBox}">
+    <StackPanel>
+      <Grid Margin="0,0,0,12">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <StackPanel Margin="0,0,16,0">
+          <TextBlock Text="{x:Static prof:LocalModeCopy.AutoStartLabel}" Style="{StaticResource LocalSectionLabel}" />
+          <TextBlock Text="{x:Static prof:LocalModeCopy.AutoStartDescription}" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" />
+        </StackPanel>
+        <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding AutoStartEnabled}" VerticalAlignment="Center" Margin="0,4,0,0" />
+      </Grid>
+      <Separator Margin="0,2,0,14" />
+      <TextBlock Text="Exit PIN — 6 to 8 digits" Style="{StaticResource LocalSectionLabel}" />
+      <TextBlock Margin="0,0,0,6" FontSize="12" Foreground="#6B7280">
+        <Run Text="Status:" />
+        <Run Text="{Binding LocalExitPinStatusText, Mode=OneWay}" FontWeight="SemiBold" />
+        <LineBreak />
+        <Run Text="Leave blank to keep the current PIN. The PIN is stored hashed and is never shown back." />
+      </TextBlock>
+      <TextBox Text="{Binding LocalExitPin, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12" />
+      <StackPanel Orientation="Horizontal">
+        <Button Content="Remove PIN" Margin="10,0,0,0" HorizontalAlignment="Left"
+                Command="{Binding RemoveLocalExitPinCommand}" Padding="18,8" />
+      </StackPanel>
+
+      <Separator Margin="0,18,0,14" />
+
+      <TextBlock Text="Self-lock" Style="{StaticResource LocalSectionLabel}" />
+      <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,0,0,10"
+                 Text="Lock yourself in for a set time. While active, the exit PIN is disabled everywhere — you can't change settings, leave local mode, or quit Guardi, and Guardi shows the mode mascot instead of the PIN. There is NO early unlock." />
+
+      <TextBlock Margin="0,0,0,10" FontSize="12" Foreground="{DynamicResource PrimaryDarkBrush}" TextWrapping="Wrap">
+        <Run Text="Status:" FontWeight="SemiBold" />
+        <Run Text="{Binding SelfLockStatusText, Mode=OneWay}" />
+      </TextBlock>
+
+      <StackPanel Visibility="{Binding IsSelfLockActive, Converter={StaticResource BoolToVisibilityInverse}}">
+        <Grid Margin="0,0,0,10">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0" Margin="0,0,8,0">
+            <TextBlock Text="Days" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,4" />
+            <TextBox Text="{Binding LocalSelfLockDays, UpdateSourceTrigger=PropertyChanged}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Margin="0,0,8,0">
+            <TextBlock Text="Hours" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,4" />
+            <TextBox Text="{Binding LocalSelfLockHours, UpdateSourceTrigger=PropertyChanged}" />
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock Text="Minutes" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,4" />
+            <TextBox Text="{Binding LocalSelfLockMinutes, UpdateSourceTrigger=PropertyChanged}" />
+          </StackPanel>
+        </Grid>
+        <Button Content="Activate self-lock" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left"
+                Command="{Binding ActivateSelfLockCommand}" Padding="18,8" />
+      </StackPanel>
+    </StackPanel>
+  </Border>
+</UserControl>

@@ -8,8 +8,8 @@ namespace EduGuardAgent.Views;
 [SupportedOSPlatform("windows")]
 public partial class AppBlockedToastWindow : Window
 {
-    private static readonly TimeSpan DefaultVisibleDuration = TimeSpan.FromSeconds(3);
-    private static readonly TimeSpan FirefoxReleaseVisibleDuration = TimeSpan.FromSeconds(4.5);
+    private static readonly TimeSpan DefaultVisibleDuration = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan FirefoxReleaseVisibleDuration = TimeSpan.FromSeconds(6.5);
 
     private readonly TimeSpan _visibleDuration;
     private DispatcherTimer? _hideTimer;

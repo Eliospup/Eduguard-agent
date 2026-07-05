@@ -160,6 +160,20 @@
                         BorderBrush="{DynamicResource SkyBorderBrush}"
                         BorderThickness="1"
                         Visibility="{Binding ShowWidgetScreenTime, Converter={StaticResource BoolToVisibility}}">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding WidgetScreenTimeExhausted}" Value="True">
+                                    <Setter Property="Effect">
+                                        <Setter.Value>
+                                            <DropShadowEffect Color="Red" BlurRadius="14" ShadowDepth="0" Opacity="0.7" />
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Setter Property="BorderBrush" Value="{DynamicResource NeonRedBrush}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
                     <TextBlock x:Name="RemainingText"
                                Text="{Binding WidgetScreenTimeRemaining}"
                                FontSize="9"
@@ -171,7 +185,7 @@
                             <Style TargetType="TextBlock">
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding WidgetScreenTimeExhausted}" Value="True">
-                                        <Setter Property="Foreground" Value="{DynamicResource WarningBrush}" />
+                                        <Setter Property="Foreground" Value="{DynamicResource NeonRedBrush}" />
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>

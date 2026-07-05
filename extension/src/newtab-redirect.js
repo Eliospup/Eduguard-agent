@@ -88,10 +88,14 @@ export function installNewTabRedirect(
   }
 
   if (!enabled || !api.tabs?.query) {
+    // Disabled path (Chrome uses the native newtab override; nothing to script). Every hook is
+    // a no-op — in particular releaseGuardiNewTabs must NOT run, or it would fight the native
+    // override by redirecting the override-rendered new tab into a reload loop.
+    const noop = async () => {};
     return {
-      rescanAllBlankTabs: async () => {},
-      releaseGuardiNewTabs,
-      syncTabsForCurrentState: releaseGuardiNewTabs,
+      rescanAllBlankTabs: noop,
+      releaseGuardiNewTabs: noop,
+      syncTabsForCurrentState: noop,
     };
   }
 

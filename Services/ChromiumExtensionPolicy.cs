@@ -39,6 +39,11 @@ internal sealed class ChromiumExtensionPolicy
             if (!BrowserInstalled(kind))
                 continue;
 
+            // Edge is never force-installed (permanently blocked), so it carries no forcelist by
+            // design — an absent entry there is not "broken".
+            if (!WritesPolicyForRoot(kind))
+                continue;
+
             var forcelistPath = $@"{root}\ExtensionInstallForcelist";
             using var key = Registry.LocalMachine.OpenSubKey(forcelistPath);
             if (key is null)
@@ -73,6 +78,10 @@ internal sealed class ChromiumExtensionPolicy
             if (!BrowserInstalled(kind))
                 continue;
 
+            // Edge is never force-installed (permanently blocked) — nothing to repair there.
+            if (!WritesPolicyForRoot(kind))
+                continue;
+
             try
             {
                 var forcelistPath = $@"{root}\ExtensionInstallForcelist";
@@ -101,6 +110,16 @@ internal sealed class ChromiumExtensionPolicy
     private static bool BrowserInstalled(BrowserKind kind) =>
         BrowserCatalog.Protected.FirstOrDefault(b => b.Kind == kind)?.IsInstalled() ?? false;
 
+    /// <summary>
+    /// Whether Guardi writes its policy into a given Chromium root. Microsoft Edge and Brave are
+    /// never protected — Edge refuses off-Edge-store force-install on non-domain (home) PCs, and
+    /// Brave loads the policy but never installs the CRX — so we never write into their roots: a
+    /// Chrome Web Store forcelist there is futile and only leaves dead policy behind.
+    /// ExtensionInstallRouter closes them instead. Only Chrome carries the Web Store shield.
+    /// </summary>
+    private static bool WritesPolicyForRoot(BrowserKind kind) =>
+        kind is not (BrowserKind.Edge or BrowserKind.Brave);
+
     public (List<RegistryStringBackup> Values, List<string> KeysCreated, List<string> Errors) Apply(
         string extensionId,
         string? updateUrl,
@@ -110,8 +129,12 @@ internal sealed class ChromiumExtensionPolicy
         var keysCreated = new List<string>();
         var errors = new List<string>();
 
-        foreach (var root in PolicyRoots)
+        foreach (var (root, kind) in PolicyRootKinds)
         {
+            // Never write into the Edge root — Edge is permanently blocked, not protected.
+            if (!WritesPolicyForRoot(kind))
+                continue;
+
             try
             {
                 if (!string.IsNullOrWhiteSpace(updateUrl))
@@ -130,6 +153,12 @@ internal sealed class ChromiumExtensionPolicy
                 ApplyExtensionSettings(root, extensionId, updateUrl, values, keysCreated);
 
                 ApplyManagedSettings(root, extensionId, settings, values, keysCreated);
+
+                if (!string.IsNullOrWhiteSpace(updateUrl)
+                    && updateUrl.Contains("clients2.google.com", StringComparison.OrdinalIgnoreCase))
+                {
+                    ApplyAllowOtherStores(root, values);
+                }
             }
             catch (Exception ex)
             {
@@ -279,7 +308,7 @@ internal sealed class ChromiumExtensionPolicy
     /// <summary>
     /// Writes the per-extension entry inside the ExtensionSettings dict policy — the modern,
     /// authoritative install channel. It declares <c>installation_mode: force_installed</c> +
-    /// <c>update_url</c> (so Chrome actually fetches and force-installs, self-hosted or Web Store)
+    /// <c>update_url</c> (so Chrome actually fetches and force-installs from the Web Store)
     /// and <c>incognito_mode: spanning</c> (so filtering also covers Incognito/InPrivate, which a
     /// bare force-install does not). ExtensionSettings is a single JSON-string value on the root
     /// policy key, so other extensions' entries are parsed and preserved rather than overwritten.
@@ -336,6 +365,40 @@ internal sealed class ChromiumExtensionPolicy
         AuditLog.Write(forceInstall
             ? $"Chromium policy: force_installed {extensionId} via ExtensionSettings (update_url={updateUrl})."
             : $"Chromium policy: enabled Incognito for {extensionId} via ExtensionSettings.");
+    }
+
+    /// <summary>
+    /// Edge requires this policy to force-install extensions from Chrome Web Store.
+    /// Without it, ExtensionInstallForcelist entries pointing at clients2.google.com are ignored.
+    /// Harmless no-op on Chrome/Brave (they don't read this value).
+    /// </summary>
+    private static void ApplyAllowOtherStores(
+        string root,
+        List<RegistryStringBackup> values)
+    {
+        if (!root.Contains("Edge", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        using var key = Registry.LocalMachine.CreateSubKey(root, writable: true);
+        if (key is null)
+            return;
+
+        const string valueName = "ControlDefaultStateOfAllowExtensionFromOtherStores";
+        var existing = key.GetValue(valueName);
+        if (existing is int v && v == 1)
+            return;
+
+        values.Add(new RegistryStringBackup
+        {
+            Hive = "HKLM",
+            KeyPath = root,
+            ValueName = valueName,
+            HadValue = existing is not null,
+            PreviousValue = existing?.ToString(),
+        });
+
+        key.SetValue(valueName, 1, RegistryValueKind.DWord);
+        AuditLog.Write("Edge policy: enabled ControlDefaultStateOfAllowExtensionFromOtherStores for Chrome Web Store force-install.");
     }
 
     private static JsonObject ParseJsonObject(string? raw)
@@ -498,6 +561,38 @@ internal sealed class ChromiumExtensionPolicy
     }
 
     /// <summary>
+    /// Deletes the 3rdparty managed-storage keys for the extension across all Chromium browsers.
+    /// </summary>
+    public static bool StripManagedStorage(string extensionId)
+    {
+        var stripped = false;
+
+        foreach (var root in PolicyRoots)
+        {
+            try
+            {
+                var extPath = $@"{root}\3rdparty\extensions\{extensionId}";
+                Registry.LocalMachine.DeleteSubKeyTree(extPath, throwOnMissingSubKey: false);
+
+                using var extParent = Registry.LocalMachine.OpenSubKey($@"{root}\3rdparty\extensions");
+                if (extParent is { SubKeyCount: 0, ValueCount: 0 })
+                    Registry.LocalMachine.DeleteSubKeyTree($@"{root}\3rdparty", throwOnMissingSubKey: false);
+
+                stripped = true;
+            }
+            catch
+            {
+                // Best-effort.
+            }
+        }
+
+        if (stripped)
+            AuditLog.Write("Chromium policy: removed 3rdparty managed-storage keys.");
+
+        return stripped;
+    }
+
+    /// <summary>
     /// Removes force-install entries so Guardi can load the extension via --load-extension instead.
     /// </summary>
     public static bool StripForcelist(string extensionId)
@@ -571,8 +666,14 @@ internal sealed class ChromiumExtensionPolicy
     public static string DescribeForcelist(string extensionId)
     {
         var parts = new List<string>();
-        foreach (var root in PolicyRoots)
+        foreach (var (root, kind) in PolicyRootKinds)
         {
+            if (!WritesPolicyForRoot(kind))
+            {
+                parts.Add($"{root}: (Edge is permanently blocked — no forcelist written)");
+                continue;
+            }
+
             var forcelistPath = $@"{root}\ExtensionInstallForcelist";
             using var key = Registry.LocalMachine.OpenSubKey(forcelistPath);
             if (key is null)

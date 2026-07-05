@@ -71,6 +71,13 @@ internal sealed class LocalSettingsService
 
     public void Persist() => _store.Save(_catalog);
 
+    public void SeedFromPreset(LocalSettingsCatalog catalog)
+    {
+        _catalog = catalog;
+        EnsureExitPinSeeded();
+        Persist();
+    }
+
     public void SeedFromRuntimeIfEmpty()
     {
         var active = AgentModeSlugs.Normalize(_agentMode.BaseSlug);
@@ -278,6 +285,7 @@ internal sealed class LocalSettingsService
             EscalationMinutes = _catalog.PunishmentEscalationMinutes,
             InfractionExtensions = _catalog.PunishmentExtensions.ToSettings().ToPayload(),
             RegenPerHour = _catalog.TrustRegenPerHour,
+            LimitIgnoredCooldownMinutes = _catalog.PunishmentLimitCooldownMinutes,
             InfractionWeights = new InfractionWeightsPayload
             {
                 VpnAttempt = _catalog.TrustWeightVpn,
@@ -410,19 +418,37 @@ internal sealed class LocalSettingsService
 
     public static IReadOnlyList<LocalHubCard> HubCards { get; } =
     [
-        new() { Key = "supervision", Title = "Supervision", Subtitle = "Mode, screen time & feature flags.", IconGlyph = "🛡️" },
-        new() { Key = "kiosk", Title = "Kiosk apps", Subtitle = "Detected apps allowed in kiosk mode.", IconGlyph = "🖥️" },
-        new() { Key = "control", Title = "Control", Subtitle = "Lock, logoff, kill apps, message.", IconGlyph = "🎛️" },
-        new() { Key = "screenshots", Title = "Screenshots", Subtitle = "Timeline + on-demand capture.", IconGlyph = "📷" },
-        new() { Key = "blocklist", Title = "Blocklist", Subtitle = "Permanently blocked apps & sites.", IconGlyph = "🚫" },
-        new() { Key = "bedtime", Title = "Sleepy time", Subtitle = "Auto lock/unlock schedule.", IconGlyph = "🌙" },
-        new() { Key = "playtime", Title = "Play time", Subtitle = "Daily global game limit & overlay.", IconGlyph = "🎮" },
-        new() { Key = "app_limits", Title = "App time limits", Subtitle = "Daily limits for specific apps.", IconGlyph = "⏱️" },
-        new() { Key = "youtube", Title = "YouTube", Subtitle = "Daily YouTube limit & overlay.", IconGlyph = "▶️" },
-        new() { Key = "study", Title = "Study time", Subtitle = "Block games during study hours.", IconGlyph = "📖" },
-        new() { Key = "discipline", Title = "Discipline", Subtitle = "Auto-escalation on rule-breaking.", IconGlyph = "⚖️" },
-        new() { Key = "image_shield", Title = "Image Shield", Subtitle = "NSFW blur — Firefox today, per mode & browser.", IconGlyph = "👁️" },
-        new() { Key = "appearance", Title = "Appearance", Subtitle = "Hide Guardi's on-screen visuals: widget, timers, badges.", IconGlyph = "🎨" },
-        new() { Key = "security", Title = "Security", Subtitle = "Exit PIN and more.", IconGlyph = "🔒" },
+        // Time limits — daily budgets
+        new() { Key = "supervision", Title = "Screen time", Subtitle = "Daily screen-time budget.", IconGlyph = "🖥️", Group = LocalHubGroups.TimeLimits },
+        new() { Key = "app_limits", Title = "App time limits", Subtitle = "Daily limits for specific apps.", IconGlyph = "⏱️", Group = LocalHubGroups.TimeLimits },
+        new() { Key = "playtime", Title = "Play time", Subtitle = "Daily game limit and overlay.", IconGlyph = "🎮", Group = LocalHubGroups.TimeLimits },
+        new() { Key = "youtube", Title = "YouTube", Subtitle = "Daily YouTube limit and overlay.", IconGlyph = "▶️", Group = LocalHubGroups.TimeLimits },
+        // Schedule — time windows
+        new() { Key = "bedtime", Title = "Bedtime", Subtitle = "Auto lock and unlock schedule.", IconGlyph = "🌙", Group = LocalHubGroups.Schedule },
+        new() { Key = "study", Title = "Study time", Subtitle = "Block distractions during study hours.", IconGlyph = "📖", Group = LocalHubGroups.Schedule },
+        // Content — what they can see
+        new() { Key = "image_shield", Title = "Image shield", Subtitle = "On-device NSFW blur, per mode and browser.", IconGlyph = "👁️", Group = LocalHubGroups.Content },
+        new() { Key = "blocklist", Title = "Blocklist", Subtitle = "Blocked sites, apps, and categories.", IconGlyph = "🚫", Group = LocalHubGroups.Content },
+        // Security — protect the system
+        new() { Key = "system_locks", Title = "System locks", Subtitle = "Block Task Manager, Registry, terminals…", IconGlyph = "🛡️", Group = LocalHubGroups.Security },
+        new() { Key = "kiosk", Title = "Kiosk mode & apps", Subtitle = "Lock to a set of allowed apps.", IconGlyph = "🔲", Group = LocalHubGroups.Security },
+        new() { Key = "security", Title = "Exit PIN & lock", Subtitle = "Exit PIN, self-lock, and startup.", IconGlyph = "🔒", Group = LocalHubGroups.Security },
+        // Behaviour — consequences
+        new() { Key = "discipline", Title = "Discipline", Subtitle = "Trust meter and auto-escalation.", IconGlyph = "🎯", Group = LocalHubGroups.Behaviour },
+        // This computer — device and agent
+        new() { Key = "control", Title = "Remote control", Subtitle = "Lock, log off, close apps, message.", IconGlyph = "🎛️", Group = LocalHubGroups.Device },
+        new() { Key = "screenshots", Title = "Screenshots", Subtitle = "Timeline and on-demand capture.", IconGlyph = "📷", Group = LocalHubGroups.Device },
+        new() { Key = "appearance", Title = "Appearance", Subtitle = "Hide widget, timers, and badges.", IconGlyph = "🎨", Group = LocalHubGroups.Device },
+    ];
+
+    /// <summary>The hub cards grouped in display order for the grouped nav list.</summary>
+    public static IReadOnlyList<LocalHubGroup> HubGroups { get; } =
+    [
+        new() { Name = LocalHubGroups.TimeLimits, Cards = HubCards.Where(c => c.Group == LocalHubGroups.TimeLimits).ToList() },
+        new() { Name = LocalHubGroups.Schedule, Cards = HubCards.Where(c => c.Group == LocalHubGroups.Schedule).ToList() },
+        new() { Name = LocalHubGroups.Content, Cards = HubCards.Where(c => c.Group == LocalHubGroups.Content).ToList() },
+        new() { Name = LocalHubGroups.Security, Cards = HubCards.Where(c => c.Group == LocalHubGroups.Security).ToList() },
+        new() { Name = LocalHubGroups.Behaviour, Cards = HubCards.Where(c => c.Group == LocalHubGroups.Behaviour).ToList() },
+        new() { Name = LocalHubGroups.Device, Cards = HubCards.Where(c => c.Group == LocalHubGroups.Device).ToList() },
     ];
 }

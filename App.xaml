@@ -3,6 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:EduGuardAgent"
              xmlns:behaviors="clr-namespace:EduGuardAgent.Behaviors"
+             xmlns:prof="clr-namespace:EduGuardAgent.Profiles"
+             xmlns:views="clr-namespace:EduGuardAgent.Views"
              ShutdownMode="OnExplicitShutdown"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
@@ -16,6 +18,7 @@
         <SolidColorBrush x:Key="OnlineBrush" Color="#2563EB" />
         <SolidColorBrush x:Key="SupervisionPendingBrush" Color="#D97706" />
         <SolidColorBrush x:Key="WarningBrush" Color="#DC2626" />
+        <SolidColorBrush x:Key="NeonRedBrush" Color="#FF1744" />
         <SolidColorBrush x:Key="SkyBorderBrush" Color="#C7D8F4" />
         <SolidColorBrush x:Key="SkySoftBrush" Color="#F5F8FF" />
         <SolidColorBrush x:Key="OnPrimaryBrush" Color="#FFFFFF" />
@@ -377,6 +380,130 @@
         <local:InitialLetterConverter x:Key="InitialLetterConverter" />
         <local:IconTypeToVisibilityConverter x:Key="IconTypeToVisibilityConverter" />
         <local:LocaleFlexibleDoubleConverter x:Key="LocaleFlexibleDoubleConverter" />
+
+        <!-- Local settings section item templates (shared by the section UserControls) -->
+        <DataTemplate x:Key="LocalKioskAppTemplate">
+            <Grid Margin="0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <CheckBox Grid.Column="0" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding IsApproved}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                <Grid Grid.Column="1" Width="24" Height="24" Margin="0,0,10,0" VerticalAlignment="Center">
+                    <Image Source="{Binding IconImage}" Width="24" Height="24" Stretch="Uniform"
+                           Visibility="{Binding HasIconImage, Converter={StaticResource BoolToVisibility}}" />
+                    <TextBlock Text="{Binding Icon}" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Visibility="{Binding HasIconImage, Converter={StaticResource BoolToVisibilityInverse}}" />
+                </Grid>
+                <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding Path}" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" />
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="LocalAppTimeLimitTemplate">
+            <Grid Margin="0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="90" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                    <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding Exe}" Foreground="{DynamicResource MutedBrush}" FontSize="11" />
+                </StackPanel>
+                <TextBox Grid.Column="1" Text="{Binding LimitMinutes, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center"
+                         ToolTip="{x:Static prof:LocalModeCopy.AppLimitsMinutesLabel}" />
+                <Button Grid.Column="2" Content="Remove" Style="{StaticResource SubtleButton}"
+                        Command="{Binding DataContext.RemoveLocalAppTimeLimitCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        CommandParameter="{Binding}" Margin="10,0,0,0" Padding="12,6" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="LocalCustomGameTemplate">
+            <Grid Margin="0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                    <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding Exe}" Foreground="{DynamicResource MutedBrush}" FontSize="11" />
+                </StackPanel>
+                <Button Grid.Column="1" Content="Remove" Style="{StaticResource SubtleButton}"
+                        Command="{Binding DataContext.RemoveLocalCustomGameCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        CommandParameter="{Binding}" Padding="12,6" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="LocalWebCategoryTemplate">
+            <Grid Margin="0,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Margin="0,0,12,0" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding Description}" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" />
+                </StackPanel>
+                <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" VerticalAlignment="Center" IsChecked="{Binding IsBlocked, Mode=TwoWay}" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="LocalWeeklyBedtimeDayTemplate">
+            <Grid Margin="0,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="48" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="28" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <CheckBox Grid.Column="0" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding OverrideEnabled}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                <TextBlock Grid.Column="1" Text="{Binding DayLabel}" VerticalAlignment="Center" FontWeight="SemiBold" />
+                <views:TimeField Grid.Column="2" Time="{Binding BedtimeTime, Mode=TwoWay}" VerticalAlignment="Center"
+                                 IsEnabled="{Binding OverrideEnabled}" ToolTip="{x:Static prof:LocalModeCopy.BedtimeTime}" />
+                <TextBlock Grid.Column="3" Text="&#x2192;" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="{DynamicResource MutedBrush}" />
+                <views:TimeField Grid.Column="4" Time="{Binding WakeTime, Mode=TwoWay}" VerticalAlignment="Center"
+                                 IsEnabled="{Binding OverrideEnabled}" ToolTip="{x:Static prof:LocalModeCopy.WakeTime}" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="LocalWeeklyStudyDayTemplate">
+            <Grid Margin="0,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="48" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="28" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <CheckBox Grid.Column="0" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding OverrideEnabled}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                <TextBlock Grid.Column="1" Text="{Binding DayLabel}" VerticalAlignment="Center" FontWeight="SemiBold" />
+                <views:TimeField Grid.Column="2" Time="{Binding StartTime, Mode=TwoWay}" VerticalAlignment="Center"
+                                 IsEnabled="{Binding OverrideEnabled}" ToolTip="{x:Static prof:LocalModeCopy.StudyStart}" />
+                <TextBlock Grid.Column="3" Text="&#x2192;" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="{DynamicResource MutedBrush}" />
+                <views:TimeField Grid.Column="4" Time="{Binding EndTime, Mode=TwoWay}" VerticalAlignment="Center"
+                                 IsEnabled="{Binding OverrideEnabled}" ToolTip="{x:Static prof:LocalModeCopy.StudyEnd}" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="LocalWeeklyDayTemplate">
+            <Grid Margin="0,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="52" />
+                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <CheckBox Grid.Column="0" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding OverrideEnabled}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                <TextBlock Grid.Column="1" Text="{Binding DayLabel}" VerticalAlignment="Center" FontWeight="SemiBold" />
+                <views:MinuteStepper Grid.Column="2" Grid.ColumnSpan="2" Minutes="{Binding Minutes, Mode=TwoWay}" Step="15" Max="1440"
+                                     Margin="8,0" HorizontalAlignment="Left" VerticalAlignment="Center" IsEnabled="{Binding OverrideEnabled}" />
+            </Grid>
+        </DataTemplate>
     </Application.Resources>
 </Application>
 

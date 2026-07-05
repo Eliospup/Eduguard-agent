@@ -11,10 +11,9 @@ namespace EduGuardAgent.Services;
 internal static class ImageShieldRuntimeStore
 {
     private static readonly object Gate = new();
-    private static readonly string StatePath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        Config.AgentDataDir,
-        "image-shield-runtime.json");
+    private const string FileName = "image-shield-runtime.json";
+    private static bool _inMemoryActive;
+    private static bool _inMemoryInitialized;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -27,7 +26,12 @@ internal static class ImageShieldRuntimeStore
         get
         {
             lock (Gate)
+            {
+                if (_inMemoryInitialized)
+                    return _inMemoryActive;
+
                 return Load().FilteringActive;
+            }
         }
     }
 
@@ -35,6 +39,9 @@ internal static class ImageShieldRuntimeStore
     {
         lock (Gate)
         {
+            _inMemoryActive = active;
+            _inMemoryInitialized = true;
+
             var state = Load() with { FilteringActive = active, UpdatedAtUtc = DateTime.UtcNow };
             Save(state);
         }
@@ -44,10 +51,10 @@ internal static class ImageShieldRuntimeStore
     {
         try
         {
-            if (!File.Exists(StatePath))
+            var status = SecureStateFile.Read(FileName, out var json);
+            if (status != StateReadStatus.Ok)
                 return RuntimeState.Default;
 
-            var json = File.ReadAllText(StatePath);
             return JsonSerializer.Deserialize<RuntimeState>(json, JsonOptions) ?? RuntimeState.Default;
         }
         catch (Exception ex)
@@ -61,8 +68,7 @@ internal static class ImageShieldRuntimeStore
     {
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(StatePath)!);
-            File.WriteAllText(StatePath, JsonSerializer.Serialize(state, JsonOptions));
+            SecureStateFile.Write(FileName, JsonSerializer.Serialize(state, JsonOptions));
         }
         catch (Exception ex)
         {

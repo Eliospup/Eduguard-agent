@@ -4,36 +4,33 @@ namespace EduGuardAgent.Security;
 
 internal sealed class YoutubeSettingsStore
 {
-    private static readonly string FilePath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        Config.AgentDataDir,
-        "youtube_settings.json");
+    private const string FileName = "youtube_settings.json";
 
     public StoredYoutubeSettings Load()
     {
-        if (!File.Exists(FilePath))
-            return StoredYoutubeSettings.Empty;
+        var status = SecureStateFile.Read(FileName, out var json);
 
-        try
+        if (status == StateReadStatus.Ok)
         {
-            var json = File.ReadAllText(FilePath);
-            var stored = JsonSerializer.Deserialize<StoredYoutubeSettings>(json);
-            return stored ?? StoredYoutubeSettings.Empty;
+            try
+            {
+                return JsonSerializer.Deserialize<StoredYoutubeSettings>(json) ?? StoredYoutubeSettings.Empty;
+            }
+            catch
+            {
+                status = StateReadStatus.Tampered;
+            }
         }
-        catch
-        {
-            return StoredYoutubeSettings.Empty;
-        }
+
+        if (status == StateReadStatus.Tampered)
+            AuditLog.Write("SECURITY: YouTube settings failed integrity check — using defaults (re-driven from the secured catalog).");
+
+        return StoredYoutubeSettings.Empty;
     }
 
     public void Save(StoredYoutubeSettings settings)
     {
-        var directory = Path.GetDirectoryName(FilePath);
-        if (!string.IsNullOrEmpty(directory))
-            Directory.CreateDirectory(directory);
-
-        var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
-        File.WriteAllText(FilePath, json);
+        SecureStateFile.Write(FileName, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
     }
 }
 

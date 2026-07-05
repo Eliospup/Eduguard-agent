@@ -266,7 +266,7 @@ public partial class MainWindow : Window
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         _blueLightFilter.StartMonitoringDisplayChanges();
-        _viewModel.PrepareSession();
+
         if (!_viewModel.EnsureOnboarded(this))
         {
             _forceClose = true;
@@ -276,6 +276,9 @@ public partial class MainWindow : Window
 
         _viewModel.EnsureWelcomeTourShown(this);
 
+        // All modal dialogs are done — safe to start enforcement (which may close
+        // browsers and show overlay windows that conflict with ShowDialog).
+        _viewModel.PrepareSession();
         _blueLightFilter.SetActive(_viewModel.IsBlueLightFilterActive, _viewModel.BlueLightFilterPhase);
         ShowGuardiWidget();
         _ = _viewModel.FinishInitializeAsync();
@@ -641,7 +644,7 @@ public partial class MainWindow : Window
 
     private void OnFirefoxRestartToastRequested(string title, string message)
     {
-        ShowTransientToast(title, message, TimeSpan.FromSeconds(4));
+        ShowTransientToast(title, message, TimeSpan.FromSeconds(6));
     }
 
     private void OnBrowserRestartCountdownRequested(string browser, string message, int secondsRemaining)
@@ -667,7 +670,7 @@ public partial class MainWindow : Window
     }
 
     private void ShowExtensionGuardToast(ExtensionGuardState state) =>
-        ShowTransientToast(state.Headline, state.Body, TimeSpan.FromSeconds(6));
+        ShowTransientToast(state.Headline, state.Body, TimeSpan.FromSeconds(8));
 
     private void ShowTransientToast(string title, string message, TimeSpan duration)
     {
@@ -697,16 +700,24 @@ public partial class MainWindow : Window
 
         if (_extensionOverlay is null)
         {
-            Action? devSkip = Config.ExtensionGuardDevBypass
-                ? _viewModel.DismissExtensionGuardOverlay
-                : null;
-
-            _extensionOverlay = new ExtensionInstallOverlayWindow(state, devSkip)
+            try
             {
-                Owner = this,
-            };
-            _extensionOverlay.Closed += (_, _) => _extensionOverlay = null;
-            _extensionOverlay.Show();
+                Action? devSkip = Config.ExtensionGuardDevBypass
+                    ? _viewModel.DismissExtensionGuardOverlay
+                    : null;
+
+                _extensionOverlay = new ExtensionInstallOverlayWindow(state, devSkip)
+                {
+                    Owner = this,
+                };
+                _extensionOverlay.Closed += (_, _) => _extensionOverlay = null;
+                _extensionOverlay.Show();
+            }
+            catch (InvalidOperationException)
+            {
+                // A modal dialog is active — fall back to a toast instead of crashing.
+                ShowExtensionGuardToast(state);
+            }
         }
         else
         {

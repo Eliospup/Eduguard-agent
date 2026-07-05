@@ -5,36 +5,35 @@ namespace EduGuardAgent.Security;
 
 internal sealed class GamingSettingsStore
 {
-    private static readonly string SettingsPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        Config.AgentDataDir,
-        "gaming_settings.json");
+    private const string FileName = "gaming_settings.json";
 
     public StoredGamingSettings Load()
     {
-        if (!File.Exists(SettingsPath))
-            return StoredGamingSettings.Empty;
+        var status = SecureStateFile.Read(FileName, out var json);
 
-        try
+        if (status == StateReadStatus.Ok)
         {
-            var json = File.ReadAllText(SettingsPath);
-            var stored = JsonSerializer.Deserialize<StoredGamingSettings>(json);
-            return stored ?? StoredGamingSettings.Empty;
+            try
+            {
+                return JsonSerializer.Deserialize<StoredGamingSettings>(json) ?? StoredGamingSettings.Empty;
+            }
+            catch
+            {
+                status = StateReadStatus.Tampered;
+            }
         }
-        catch
-        {
-            return StoredGamingSettings.Empty;
-        }
+
+        if (status == StateReadStatus.Tampered)
+            AuditLog.Write("SECURITY: gaming settings failed integrity check — using defaults (re-driven from the secured catalog).");
+
+        return StoredGamingSettings.Empty;
     }
 
     public void Save(StoredGamingSettings settings)
     {
         try
         {
-            var dir = Path.GetDirectoryName(SettingsPath)!;
-            Directory.CreateDirectory(dir);
-            var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(SettingsPath, json);
+            SecureStateFile.Write(FileName, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
         }
         catch
         {

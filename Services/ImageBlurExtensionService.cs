@@ -1288,6 +1288,11 @@ internal sealed class ImageBlurExtensionService : IDisposable
         if (!HasAdminRights || !IsConfigured || !Config.ExtensionGuardEnforceChromium)
             return false;
 
+        // Extension not published yet (and not in local unpacked dev) — nothing to install,
+        // Chromium browsers are being blocked instead. Don't restart Chrome for the shield.
+        if (!Config.ChromiumExtensionPublished && !ChromiumUnpackedMode.IsActive)
+            return false;
+
         if (!ImageShieldPolicy.ShouldEnforceBrowser(BrowserKind.Chrome))
             return false;
 
@@ -1311,6 +1316,19 @@ internal sealed class ImageBlurExtensionService : IDisposable
             return false;
 
         var extensionMissing = !ChromiumExtensionInstallState.IsInstalled(chrome, cfg.ChromiumExtensionId);
+
+        // Web Store mode: if the extension isn't published/listed on the Chrome Web Store yet,
+        // restarting Chrome cannot install it — the browser would just be bounced forever in an
+        // incoherent loop. Leave Chrome open; the install resumes automatically after publication
+        // (mirrors ExtensionEnforcementService's NotListed guard). Unpacked mode still restarts,
+        // since --load-extension does load the local build on relaunch.
+        if (extensionMissing
+            && !ChromiumUnpackedMode.IsActive
+            && ChromiumWebStoreProbe.Check(cfg.ChromiumExtensionId).Status == ChromiumWebStoreListingStatus.NotListed)
+        {
+            return false;
+        }
+
         var shouldRestart = extensionMissing
             || (_lastChromiumDeployOutcome?.RequiresBrowserRestart ?? false);
 

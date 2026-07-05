@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net.Http;
 using EduGuardAgent.Commands;
 using EduGuardAgent.Models;
@@ -182,6 +183,7 @@ internal sealed class AgentLoop
 
     private void EnforceBlockedApps(IReadOnlyList<string> runningApps)
     {
+        // Layer 1: direct process-name match (existing behavior).
         foreach (var app in runningApps)
         {
             if (!_sessionState.IsBlocked(app))
@@ -216,6 +218,77 @@ internal sealed class AgentLoop
             if (killedAny)
                 NotifyAppBlocked(app, category);
         }
+
+        // Layer 2: PE OriginalFilename scan — catches renamed VPN executables.
+        EnforceBlockedAppsByPeMetadata();
+    }
+
+    private void EnforceBlockedAppsByPeMetadata()
+    {
+        var blockedApps = _sessionState.BlockedApps;
+        if (blockedApps.Count == 0)
+            return;
+
+        var blockedSet = new HashSet<string>(blockedApps, StringComparer.OrdinalIgnoreCase);
+
+        Process[] allProcesses;
+        try
+        {
+            allProcesses = Process.GetProcesses();
+        }
+        catch
+        {
+            return;
+        }
+
+        foreach (var process in allProcesses)
+        {
+            try
+            {
+                if (process.Id == System.Environment.ProcessId)
+                    continue;
+
+                if (process.SessionId == 0)
+                    continue;
+
+                var processExe = SafeProcessExe(process);
+                if (processExe is null)
+                    continue;
+
+                // Skip if process name already matches a blocked app (handled by Layer 1).
+                if (blockedSet.Contains(processExe))
+                    continue;
+
+                var originalExe = Security.ProcessIdentifier.GetOriginalFilename(process);
+                if (originalExe is null || !blockedSet.Contains(originalExe))
+                    continue;
+
+                _sessionState.TryGetBlockCategory(originalExe, out var category);
+
+                process.Kill(entireProcessTree: true);
+                _notifier.Log($"Blocked app killed: {originalExe} (renamed from {processExe})");
+                NotifyAppBlocked(originalExe, category);
+            }
+            catch
+            {
+                // best effort
+            }
+            finally
+            {
+                process.Dispose();
+            }
+        }
+    }
+
+    private static string? SafeProcessExe(Process process)
+    {
+        try
+        {
+            var name = process.ProcessName;
+            return string.IsNullOrWhiteSpace(name) ? null :
+                name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? name : $"{name}.exe";
+        }
+        catch { return null; }
     }
 
     private void NotifyAppBlocked(string processName, AppBlockCategory category)

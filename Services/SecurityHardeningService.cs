@@ -7,12 +7,13 @@ namespace EduGuardAgent.Services;
 
 /// <summary>
 /// Enforces the configurable per-mode security locks (Task Manager, Registry Editor,
-/// command interpreters, system configuration tools, process explorers, …).
+/// command interpreters, system configuration tools, process explorers, ...).
 ///
-/// Enforcement is process-based: any blocked tool is terminated on a fast tick so it
-/// works regardless of which user hive the elevated agent runs under. This is the
-/// reliable layer; it does not rely on per-user registry policies which would land in
-/// the wrong hive when an over-the-shoulder admin elevates the agent.
+/// Detection is two-layered: process name AND PE OriginalFilename metadata.  A
+/// supervised user who renames cmd.exe to homework.exe is still caught because the
+/// PE version-info field preserves the original identity.  The full process list is
+/// enumerated once per tick and each process is checked against the blocked set by
+/// both its running name and its PE original name.
 /// </summary>
 [SupportedOSPlatform("windows")]
 internal sealed class SecurityHardeningService : IDisposable
@@ -28,12 +29,58 @@ internal sealed class SecurityHardeningService : IDisposable
         "procmon.exe", "procmon64.exe",
         "pchunter.exe", "pchunter64.exe",
         "perfmon.exe",
+        "resmon.exe",
+        "eventvwr.exe",
+        "autoruns.exe", "autoruns64.exe",
     ];
 
     private static readonly string[] ControlPanelExes =
     [
         "control.exe",
-        "systemsettings.exe",
+    ];
+
+    private static readonly string[] SystemConfigExes =
+    [
+        "msconfig.exe",
+        "mmc.exe",
+    ];
+
+    private static readonly string[] CommandPromptExes =
+    [
+        "cmd.exe",
+        "reg.exe",
+        "net.exe",
+        "net1.exe",
+        "sc.exe",
+        "schtasks.exe",
+        "bcdedit.exe",
+        "netsh.exe",
+        "wmic.exe",
+        "cscript.exe",
+        "wscript.exe",
+        "mshta.exe",
+    ];
+
+    // Tools Windows legitimately spawns in the user session (Task Scheduler,
+    // network stack, WMI providers, login scripts…). Kill them silently —
+    // no trust penalty — because the user almost certainly didn't launch them.
+    private static readonly HashSet<string> SilentKillExes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "schtasks.exe",
+        "netsh.exe",
+        "net.exe",
+        "net1.exe",
+        "sc.exe",
+        "wmic.exe",
+        "cscript.exe",
+        "wscript.exe",
+    };
+
+    private static readonly string[] PowerShellExes =
+    [
+        "powershell.exe",
+        "pwsh.exe",
+        "powershell_ise.exe",
     ];
 
     private readonly object _lock = new();
@@ -46,6 +93,7 @@ internal sealed class SecurityHardeningService : IDisposable
     private bool _blockProcessKillers = true;
     private bool _disposed;
     private volatile bool _killerEnforceInFlight;
+    private volatile bool _enforceInFlight;
 
     public SecurityHardeningService(Action<string>? log = null) => _log = log;
 
@@ -77,19 +125,21 @@ internal sealed class SecurityHardeningService : IDisposable
                 _killProcesses.Add("regedit.exe");
 
             if (features.BlockCommandPrompt)
-                _killProcesses.Add("cmd.exe");
+            {
+                foreach (var exe in CommandPromptExes)
+                    _killProcesses.Add(exe);
+            }
 
             if (features.BlockPowerShell)
             {
-                _killProcesses.Add("powershell.exe");
-                _killProcesses.Add("pwsh.exe");
-                _killProcesses.Add("powershell_ise.exe");
+                foreach (var exe in PowerShellExes)
+                    _killProcesses.Add(exe);
             }
 
             if (features.BlockSystemConfig)
             {
-                _killProcesses.Add("msconfig.exe");
-                _killProcesses.Add("mmc.exe");
+                foreach (var exe in SystemConfigExes)
+                    _killProcesses.Add(exe);
             }
 
             if (features.BlockControlPanel)
@@ -182,65 +232,131 @@ internal sealed class SecurityHardeningService : IDisposable
         }
     }
 
+    /// <summary>
+    /// Enumerates all running processes once and checks each against the blocked set
+    /// by both process name and PE OriginalFilename.  This catches renamed executables.
+    /// </summary>
     private void EnforceNow()
     {
-        PruneReportedPids();
+        if (_enforceInFlight)
+            return;
 
-        string[] killTargets;
-        lock (_lock)
-        {
-            if (_disposed)
-                return;
-
-            killTargets = _killProcesses.ToArray();
-        }
-
-        foreach (var exe in killTargets)
-            EnforceProcess(exe);
-    }
-
-    private void EnforceProcess(string exe)
-    {
-        var processName = exe.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
-            ? exe[..^4]
-            : exe;
-
-        Process[] processes;
+        _enforceInFlight = true;
         try
         {
-            processes = Process.GetProcessesByName(processName);
-        }
-        catch
-        {
-            return;
-        }
+            PruneReportedPids();
 
-        foreach (var process in processes)
-        {
+            HashSet<string> killTargets;
+            lock (_lock)
+            {
+                if (_disposed)
+                    return;
+
+                if (_killProcesses.Count == 0)
+                    return;
+
+                killTargets = new HashSet<string>(_killProcesses, StringComparer.OrdinalIgnoreCase);
+            }
+
+            Process[] processes;
             try
             {
-                if (process.Id == Environment.ProcessId)
-                    continue;
-
-                var pid = process.Id;
-                var report = false;
-                lock (_lock)
-                    report = _reportedPids.Add(pid);
-
-                if (report)
-                    ToolBlocked?.Invoke(exe);
-
-                process.Kill(entireProcessTree: true);
-                _log?.Invoke($"Security lock closed {exe}.");
+                processes = Process.GetProcesses();
             }
             catch
             {
-                // Elevated tools may refuse termination — the bypass was still reported.
+                return;
             }
-            finally
+
+            var alivePids = new HashSet<int>(processes.Length);
+
+            foreach (var process in processes)
             {
-                process.Dispose();
+                try
+                {
+                    var pid = process.Id;
+                    alivePids.Add(pid);
+
+                    if (pid == Environment.ProcessId)
+                        continue;
+
+                    // Session 0 = SYSTEM/services — never user-initiated.
+                    // Windows legitimately spawns schtasks.exe, reg.exe, etc.
+                    if (process.SessionId == 0)
+                        continue;
+
+                    var processExe = ProcessNameToExe(process);
+                    if (processExe is null)
+                        continue;
+
+                    // Layer 1: direct process name match (fast path).
+                    if (killTargets.Contains(processExe))
+                    {
+                        KillAndReport(process, processExe);
+                        continue;
+                    }
+
+                    // Layer 2: PE OriginalFilename — catches renamed executables.
+                    var originalExe = ProcessIdentifier.GetOriginalFilename(process);
+                    if (originalExe is not null && killTargets.Contains(originalExe))
+                    {
+                        KillAndReport(process, originalExe);
+                    }
+                }
+                catch
+                {
+                    // Protected/system processes may throw — skip silently.
+                }
+                finally
+                {
+                    process.Dispose();
+                }
             }
+
+            ProcessIdentifier.PruneCache(alivePids);
+        }
+        finally
+        {
+            _enforceInFlight = false;
+        }
+    }
+
+    private void KillAndReport(Process process, string matchedExe)
+    {
+        var pid = process.Id;
+        var report = false;
+        lock (_lock)
+            report = _reportedPids.Add(pid);
+
+        if (report && !SilentKillExes.Contains(matchedExe))
+            ToolBlocked?.Invoke(matchedExe);
+
+        try
+        {
+            process.Kill(entireProcessTree: true);
+            _log?.Invoke($"Security lock closed {matchedExe} (PID {pid}).");
+        }
+        catch
+        {
+            // Elevated tools may refuse termination — the bypass was still reported.
+        }
+    }
+
+    private static string? ProcessNameToExe(Process process)
+    {
+        try
+        {
+            var name = process.ProcessName;
+            if (string.IsNullOrWhiteSpace(name))
+                return null;
+
+            return name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+                ? name
+                : $"{name}.exe";
+        }
+        catch
+        {
+            return null;
         }
     }
 

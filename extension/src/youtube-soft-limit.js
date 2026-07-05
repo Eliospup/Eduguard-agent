@@ -11,11 +11,23 @@ const OVERLAY_ID = "guardi-yt-soft-overlay";
 let overlayVisible = false;
 let pollTimer = null;
 
-function isWatchPage() {
-  return location.pathname === "/watch";
+function isShortsPage() {
+  return location.pathname.startsWith("/shorts");
+}
+
+// The soft limit covers regular videos (/watch) AND Shorts (/shorts/<id>) — time spent in
+// the Shorts feed counts toward the same YouTube limit, so it must pause there too.
+function isLimitedYoutubePage() {
+  return location.pathname === "/watch" || isShortsPage();
 }
 
 function getVideoElement() {
+  if (isShortsPage()) {
+    // Shorts preloads several <video> elements; only the active reel is playing.
+    const activeReel = document.querySelector("ytd-reel-video-renderer[is-active]");
+    const reelVideo = activeReel?.querySelector("video");
+    if (reelVideo) return reelVideo;
+  }
   return (
     document.querySelector("video.html5-main-video") ||
     document.querySelector("video")
@@ -23,6 +35,14 @@ function getVideoElement() {
 }
 
 function getPlayerContainer() {
+  if (isShortsPage()) {
+    return (
+      document.querySelector("ytd-reel-video-renderer[is-active]") ||
+      document.querySelector("#shorts-player") ||
+      getVideoElement()?.closest("ytd-reel-video-renderer") ||
+      document.querySelector("#movie_player")
+    );
+  }
   return (
     document.querySelector("#movie_player") ||
     document.querySelector(".html5-video-player") ||
@@ -116,7 +136,7 @@ function buildOverlay() {
 
 function showOverlay() {
   if (overlayVisible) return;
-  if (!isWatchPage()) return;
+  if (!isLimitedYoutubePage()) return;
 
   const video = getVideoElement();
   if (video && !video.paused) video.pause();
@@ -201,15 +221,24 @@ function stopPolling() {
 }
 
 function onNavigation() {
-  if (!isWatchPage()) {
+  if (!isLimitedYoutubePage()) {
     hideOverlay();
     stopPolling();
-  } else {
-    startPolling();
+    return;
+  }
+
+  startPolling();
+
+  // Swiping between Shorts tears down the previous reel (and our overlay with it). If the
+  // limit is still active but the overlay fell out of the DOM, re-fetch state immediately so
+  // showOverlay() re-anchors onto the new short instead of waiting for the next poll tick.
+  if (overlayVisible && !document.getElementById(OVERLAY_ID)) {
+    overlayVisible = false;
+    poll();
   }
 }
 
-if (isWatchPage()) {
+if (isLimitedYoutubePage()) {
   startPolling();
 }
 
@@ -220,3 +249,7 @@ history.pushState = (...args) => {
   setTimeout(onNavigation, 0);
 };
 window.addEventListener("popstate", () => setTimeout(onNavigation, 0));
+
+// YouTube fires its own navigation event, including on Shorts swipes that don't always go
+// through pushState — the most reliable signal to re-anchor the overlay onto the new short.
+window.addEventListener("yt-navigate-finish", () => setTimeout(onNavigation, 0));

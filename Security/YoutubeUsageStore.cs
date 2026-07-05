@@ -4,44 +4,48 @@ namespace EduGuardAgent.Security;
 
 internal sealed class YoutubeUsageStore
 {
-    private static readonly string FilePath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        Config.AgentDataDir,
-        "youtube_usage.json");
+    private const string FileName = "youtube_usage.json";
 
     public StoredYoutubeUsage Load(DateOnly today)
     {
-        if (!File.Exists(FilePath))
-            return StoredYoutubeUsage.Empty(today);
+        var status = SecureStateFile.Read(FileName, out var json);
 
-        try
+        if (status == StateReadStatus.Ok)
         {
-            var json = File.ReadAllText(FilePath);
-            var stored = JsonSerializer.Deserialize<StoredYoutubeUsage>(json);
-            if (stored is null || stored.Date != today.ToString("yyyy-MM-dd"))
-                return StoredYoutubeUsage.Empty(today);
+            try
+            {
+                var stored = JsonSerializer.Deserialize<StoredYoutubeUsage>(json);
+                if (stored is null || stored.Date != today.ToString("yyyy-MM-dd"))
+                    return StoredYoutubeUsage.Empty(today);
 
-            return stored;
+                return stored;
+            }
+            catch
+            {
+                status = StateReadStatus.Tampered;
+            }
         }
-        catch
+
+        if (status == StateReadStatus.Tampered)
         {
-            return StoredYoutubeUsage.Empty(today);
+            AuditLog.Write("SECURITY: YouTube usage failed integrity check — failing closed to limit reached.");
+            return StoredYoutubeUsage.Saturated(today);
         }
+
+        return StoredYoutubeUsage.Empty(today);
     }
 
     public void Save(StoredYoutubeUsage usage)
     {
-        var directory = Path.GetDirectoryName(FilePath);
-        if (!string.IsNullOrEmpty(directory))
-            Directory.CreateDirectory(directory);
-
-        var json = JsonSerializer.Serialize(usage, new JsonSerializerOptions { WriteIndented = true });
-        File.WriteAllText(FilePath, json);
+        SecureStateFile.Write(FileName, JsonSerializer.Serialize(usage, new JsonSerializerOptions { WriteIndented = true }));
     }
 }
 
 internal sealed class StoredYoutubeUsage
 {
+    // Fail-closed sentinel: larger than any plausible daily limit.
+    private const double SaturatedSeconds = 48 * 60 * 60;
+
     public string Date { get; set; } = string.Empty;
     public double TotalSeconds { get; set; }
 
@@ -49,5 +53,11 @@ internal sealed class StoredYoutubeUsage
     {
         Date = today.ToString("yyyy-MM-dd"),
         TotalSeconds = 0,
+    };
+
+    public static StoredYoutubeUsage Saturated(DateOnly today) => new()
+    {
+        Date = today.ToString("yyyy-MM-dd"),
+        TotalSeconds = SaturatedSeconds,
     };
 }

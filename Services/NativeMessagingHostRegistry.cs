@@ -81,4 +81,57 @@ internal static class NativeMessagingHostRegistry
         using var edgeKey = hive.CreateSubKey($@"Software\Microsoft\Edge\NativeMessagingHosts\{GuardiNativeMessaging.HostName}");
         edgeKey.SetValue("", manifestPath, RegistryValueKind.String);
     }
+
+    /// <summary>
+    /// Fully removes the native-messaging registration for a clean uninstall: deletes the
+    /// registry keys in both hives (all three browser families) and the on-disk manifest/launcher
+    /// directory. Best-effort and safe to call when nothing was registered.
+    /// </summary>
+    public static void Unregister()
+    {
+        foreach (var (hive, hiveName) in new[] { (Registry.CurrentUser, "HKCU"), (Registry.LocalMachine, "HKLM") })
+        {
+            foreach (var vendor in new[] { "Mozilla", @"Google\Chrome", @"Microsoft\Edge" })
+            {
+                var path = $@"Software\{vendor}\NativeMessagingHosts\{GuardiNativeMessaging.HostName}";
+                try
+                {
+                    hive.DeleteSubKeyTree(path, throwOnMissingSubKey: false);
+                }
+                catch (Exception ex)
+                {
+                    Security.AuditLog.Write($"Registry delete failed ({hiveName}\\{path}): {ex.Message}");
+                    TryRegExeDelete(hiveName, path);
+                }
+            }
+        }
+
+        try
+        {
+            if (Directory.Exists(NativeDir))
+                Directory.Delete(NativeDir, recursive: true);
+        }
+        catch
+        {
+            // Best-effort; the folder is removed with the data dir anyway.
+        }
+    }
+
+    private static void TryRegExeDelete(string hive, string path)
+    {
+        try
+        {
+            var fullKey = $"{hive}\\{path}";
+            var psi = new System.Diagnostics.ProcessStartInfo("reg.exe", $"delete \"{fullKey}\" /f")
+            {
+                CreateNoWindow = true,
+                UseShellExecute = false,
+            };
+            System.Diagnostics.Process.Start(psi)?.WaitForExit(5000);
+        }
+        catch
+        {
+            // Last resort failed.
+        }
+    }
 }

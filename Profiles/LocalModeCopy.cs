@@ -11,6 +11,10 @@ internal static class LocalModeCopy
     public const string ManageButton = "Local settings";
     public const string StatusLabel = "Local mode — web settings ignored";
 
+    // Local mode has no server to link to, so the online/offline "Reconnecting…" copy never
+    // applies — the widget shows this steady label instead.
+    public const string ProtectedLabel = "Protected on this PC";
+
     public const string AutoStartLabel = "Open Guardi at Windows sign-in";
     public const string AutoStartDescription =
         "When enabled, Guardi creates a Windows logon task and relaunches automatically after sign-in. Turn this off to stop opening at startup.";

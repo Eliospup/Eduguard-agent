@@ -4,40 +4,45 @@ namespace EduGuardAgent.Security;
 
 internal sealed class AppTimeUsageStore
 {
-    private static readonly string UsagePath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        Config.AgentDataDir,
-        "app_time_usage.json");
+    private const string FileName = "app_time_usage.json";
 
     public StoredAppTimeUsage Load(DateOnly today)
     {
-        if (!File.Exists(UsagePath))
-            return StoredAppTimeUsage.Empty(today);
+        var status = SecureStateFile.Read(FileName, out var json);
 
-        try
+        if (status == StateReadStatus.Ok)
         {
-            var json = File.ReadAllText(UsagePath);
-            var stored = JsonSerializer.Deserialize<StoredAppTimeUsage>(json);
-            if (stored is null || stored.Date != today.ToString("yyyy-MM-dd"))
-                return StoredAppTimeUsage.Empty(today);
+            try
+            {
+                var stored = JsonSerializer.Deserialize<StoredAppTimeUsage>(json);
+                if (stored is null || stored.Date != today.ToString("yyyy-MM-dd"))
+                    return StoredAppTimeUsage.Empty(today);
 
-            stored.Apps ??= new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
-            return stored;
+                stored.Apps ??= new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+                return stored;
+            }
+            catch
+            {
+                status = StateReadStatus.Tampered;
+            }
         }
-        catch
+
+        if (status == StateReadStatus.Tampered)
         {
-            return StoredAppTimeUsage.Empty(today);
+            // Per-app usage is keyed by arbitrary exe names we can't reconstruct here, so we
+            // can't saturate it the way the single-total ledgers do. The hardened folder ACL
+            // (Users read-only) is the real guard against resetting this; log the tamper.
+            AuditLog.Write("SECURITY: app-time usage failed integrity check.");
         }
+
+        return StoredAppTimeUsage.Empty(today);
     }
 
     public void Save(StoredAppTimeUsage usage)
     {
         try
         {
-            var dir = Path.GetDirectoryName(UsagePath)!;
-            Directory.CreateDirectory(dir);
-            var json = JsonSerializer.Serialize(usage, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(UsagePath, json);
+            SecureStateFile.Write(FileName, JsonSerializer.Serialize(usage, new JsonSerializerOptions { WriteIndented = true }));
         }
         catch
         {

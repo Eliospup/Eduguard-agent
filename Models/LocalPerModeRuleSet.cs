@@ -1,4 +1,5 @@
-﻿using System.ComponentModel;
+﻿using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Text.Json.Serialization;
 using EduGuardAgent.Profiles;
 
@@ -188,6 +189,9 @@ internal sealed class LocalSettingsCatalog
     /// <summary>Trust points regained per hour of clean, supervised time.</summary>
     public int TrustRegenPerHour { get; set; } = 5;
 
+    /// <summary>Minutes between counted "time limit ignored" trust losses.</summary>
+    public int PunishmentLimitCooldownMinutes { get; set; } = 5;
+
     public int TrustWeightVpn { get; set; } = 25;
     public int TrustWeightBypass { get; set; } = 20;
     public int TrustWeightBlockedApp { get; set; } = 15;
@@ -364,6 +368,59 @@ internal sealed class LocalHubCard
     public required string Title { get; init; }
     public required string Subtitle { get; init; }
     public required string IconGlyph { get; init; }
+
+    /// <summary>Which hub group this card belongs to (for the grouped nav list).</summary>
+    public string Group { get; init; } = LocalHubGroups.Device;
+}
+
+/// <summary>The top-level buckets the local settings hub is organised into, grouped by intent.</summary>
+internal static class LocalHubGroups
+{
+    public const string TimeLimits = "Time limits";
+    public const string Schedule = "Schedule";
+    public const string Content = "Content";
+    public const string Security = "Security";
+    public const string Behaviour = "Behaviour";
+    public const string Device = "This computer";
+}
+
+/// <summary>A hub group with its cards, for the grouped nav list. Subtitles are live values.</summary>
+internal sealed class LocalHubGroup
+{
+    public required string Name { get; init; }
+    public required IReadOnlyList<LocalHubCard> Cards { get; init; }
+}
+
+/// <summary>A hub card whose subtitle reflects the current live value (e.g. "21:00 → 07:00").</summary>
+internal sealed class LocalHubCardView : INotifyPropertyChanged
+{
+    private string _subtitle = string.Empty;
+
+    public required string Key { get; init; }
+    public required string Title { get; init; }
+    public required string IconGlyph { get; init; }
+
+    public string Subtitle
+    {
+        get => _subtitle;
+        set
+        {
+            if (_subtitle == value)
+                return;
+
+            _subtitle = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Subtitle)));
+        }
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+}
+
+/// <summary>A named group of live hub cards for the grouped nav list.</summary>
+internal sealed class LocalHubGroupView
+{
+    public required string Name { get; init; }
+    public ObservableCollection<LocalHubCardView> Cards { get; } = [];
 }
 
 internal sealed class LocalModeChoiceItem

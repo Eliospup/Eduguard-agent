@@ -10,6 +10,7 @@ internal static partial class Config
     public const string AgentDataDir = "EduGuard";
     public const string TokenFileName = "agent.dat";
     public const string ExitPinFileName = "exit_pin.dat";
+    public const string SelfLockFileName = "self_lock.dat";
     public const string SubProfileFileName = "sub_profile.json";
     public const string AuditLogFileName = "audit.log";
 
@@ -38,12 +39,20 @@ internal static partial class Config
     // --- Guardi Image Shield (NSFW blur) browser extension -----------------
     // Published on Chrome Web Store + Firefox AMO. IDs/URLs live in
     // extension/store-config.json (see docs/EXTENSION_STORE_PUBLISHING.md).
-    public const string ImageShieldExtensionId = "pooilkajkfmogajdafmaphmjecofpbbk";
+    public const string ImageShieldExtensionId = "afeceenhifjddkahkbbodmhidpfnkide";
     public const string ImageShieldChromeUpdateUrl =
         "https://clients2.google.com/service/update2/crx";
+
+    // Microsoft Edge is NOT protectable and is permanently blocked (closed on launch). Reason:
+    // Edge refuses to force-install any extension that is not on the Microsoft Edge Add-ons store
+    // on Windows machines not joined to an Active Directory domain (documented Microsoft policy
+    // restriction) — so the Chrome Web Store CRX cannot be pushed to Edge on a home PC. Publishing
+    // a separate Edge Add-ons listing was judged not worth the review/justification overhead, so
+    // Guardi simply closes Edge and steers the child to Chrome or Firefox. (Brave is blocked too
+    // for a related reason: it loads the force-install policy but never installs the CRX.)
     public const string ImageShieldFirefoxAddonId = "image-shield@guardi.app";
     public const string ImageShieldFirefoxInstallUrl =
-        "https://github.com/Eliospup/Eduguard-agent/releases/download/extension-v0.8.43/guardi-image-shield.xpi";
+        "https://github.com/Eliospup/Eduguard-agent/releases/download/extension-v0.8.46/guardi-image-shield.xpi";
 
     // --- Extension enforcement (mandatory install + anti-tamper) -----------
     // Master switch for the guard that detects, force-installs and enforces the
@@ -64,6 +73,14 @@ internal static partial class Config
 
     // Chrome Web Store — extension published (unlisted). See extension/store-config.json.
     public static bool ExtensionGuardEnforceChromium = true;
+
+    // Whether the Chromium extension is actually LIVE on the Chrome Web Store.
+    // store-config.json can hold the assigned ID while review is still pending — that
+    // alone does NOT mean the extension is installable. While this is false, Guardi has
+    // no way to protect Chrome/Edge/Brave, so those browsers are blocked (killed on launch)
+    // and their per-browser shield toggles are hidden. Flip to true only once the extension
+    // is published and installs cleanly from the Web Store.
+    public static bool ChromiumExtensionPublished = true;
 
     // Dev: Guardi restarts Chrome/Edge/Brave with --load-extension=dist/chromium (works on personal Windows).
     // Prod: false — force-install published build from Chrome Web Store only.

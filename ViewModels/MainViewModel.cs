@@ -46,6 +46,7 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
     private readonly ExtensionInfractionHttpReporter _extensionInfractionHttp;
     private readonly BedtimeService _bedtime;
     private readonly ExitPinService _exitPin;
+    private readonly SelfLockService _selfLock;
     private readonly KioskAppRegistry _kioskApps;
     private readonly KioskService _kiosk;
     private readonly LocalModeService _localMode;
@@ -53,6 +54,7 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
     private readonly SubProfileService _subProfile;
     private bool _kioskBypassed;
     private bool _kioskPresentationActive;
+    private bool _pendingForceKillInfraction;
     private readonly Dispatcher _dispatcher;
     private RestrictionItem? _playTimeRestriction;
     private RestrictionItem? _youtubeTimeRestriction;
@@ -83,6 +85,7 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
     private bool _showPunishmentCountdown;
     private DispatcherTimer? _punishmentCountdownTimer;
     private bool _disposed;
+    private readonly System.Threading.Timer? _securityReassertTimer;
     private volatile bool _coreShutdownDone;
     private int _restrictionsRefreshSerial;
     private CancellationTokenSource? _startupCts;
@@ -116,6 +119,10 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
     private PunishmentExtensionCatalog _localPunishmentExtensions = PunishmentExtensionCatalog.CreateDefaults();
     private bool _localPunishmentEnabled = true;
     private int _localTrustRegenPerHour = 5;
+    private int _localPunishmentLimitCooldownMinutes = 5;
+    private int _localSelfLockDays;
+    private int _localSelfLockHours;
+    private int _localSelfLockMinutes;
     private int _localTrustWeightVpn = 25;
     private int _localTrustWeightBypass = 20;
     private int _localTrustWeightBlockedApp = 15;
@@ -153,6 +160,8 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
         _vpnBlocking = new VpnBlockingService();
         _exitPin = new ExitPinService();
         _exitPin.LoadFromStorage();
+        _selfLock = new SelfLockService();
+        _selfLock.LoadFromStorage();
         _dispatcher = Application.Current.Dispatcher;
         _extensionGuard = new ExtensionEnforcementService(
             log: msg =>
@@ -195,7 +204,8 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
             },
             chromiumTarget: () =>
             {
-                if (!Config.ExtensionGuardEnforceChromium || ChromiumUnpackedMode.IsActive)
+                if (!Config.ExtensionGuardEnforceChromium || ChromiumUnpackedMode.IsActive
+                    || !Config.ChromiumExtensionPublished)
                     return null;
                 var cfg = ExtensionConfigResolver.Active;
                 if (cfg is null || !cfg.IsChromiumReady || string.IsNullOrWhiteSpace(cfg.ChromeUpdateUrl))
@@ -207,7 +217,6 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
                 AuditLog.Write($"Extension policy watchdog: {msg}");
                 PostOnUi(() => AddLog(msg));
             });
-        _extensionPolicyWatchdog.Start();
         BrowserInstallOrchestrator.RestartCountdownHandler = (browser, message, seconds) =>
             PostOnUi(() => BrowserRestartCountdownRequested?.Invoke(browser, message, seconds));
         _screenTime = new ScreenTimeTracker(_dispatcher);
@@ -215,9 +224,11 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
         _studyDistractionGuard = new StudyDistractionGuard(_studyTime, _urlBlocking, _dispatcher);
         _studyDistractionGuard.DistractingAppBlocked += OnStudyDistractionAppBlocked;
         _wasStudyActiveForToast = _studyTime.IsActiveNow;
-        _gaming = new GamingTimeTracker(_dispatcher, _studyTime, () => IsHardDisciplineEnforcement);
+        _gaming = new GamingTimeTracker(_dispatcher, _studyTime, () => IsHardDisciplineEnforcement,
+            () => ExhaustedLabelFor("gaming"));
         _appTimeLimits = new AppTimeLimitTracker(_dispatcher, () => IsHardDisciplineEnforcement);
-        _youtube = new YoutubeTimeTracker(_dispatcher, _studyTime, () => IsHardDisciplineEnforcement);
+        _youtube = new YoutubeTimeTracker(_dispatcher, _studyTime, () => IsHardDisciplineEnforcement,
+            () => ExhaustedLabelFor("youtube"));
         _punishment = new PunishmentService(_dispatcher, () => _agentMode.BaseStrictnessIndex);
         _extensionInfractionWatcher = new ExtensionInfractionWatcher(OnExtensionBlockedSearch);
         _extensionInfractionWatcher.Start();
@@ -263,6 +274,7 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
         NavigateToLocalSettingsCommand = new RelayCommand(NavigateToLocalSettings, () => IsLocalMode);
         OpenLocalSectionCommand = new RelayCommand<string>(OpenLocalSection, key => IsLocalMode && !string.IsNullOrWhiteSpace(key));
         SaveLocalSectionCommand = new RelayCommand(SaveLocalSection, () => IsLocalMode);
+        DiscardLocalSectionCommand = new RelayCommand(DiscardLocalSection, () => IsLocalMode && LocalSectionDirty);
         BlockLocalUrlCommand = new RelayCommand(BlockLocalUrl, () => IsLocalMode && !string.IsNullOrWhiteSpace(LocalBlockedUrl));
         BlockLocalAppCommand = new RelayCommand(BlockLocalApp, () => IsLocalMode && !string.IsNullOrWhiteSpace(LocalBlockedApp));
         LocalLockScreenCommand = new RelayCommand(TriggerLocalLockScreen, () => IsLocalMode);
@@ -318,6 +330,7 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
             });
 
         RefreshDisciplineStanding();
+        ConsumeForceKillMarker();
 
         _dispatcher.Invoke(() =>
         {
@@ -327,6 +340,22 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
             }, _dispatcher);
             clock.Start();
         });
+
+        // Self-healing mesh (agent side): periodically re-assert the SYSTEM guardian task + boot
+        // service so that if an admin deletes them while the agent is alive, they come straight
+        // back. The SYSTEM guardian and boot service re-create each other + resurrect the agent;
+        // this closes the loop for "guardians fully removed while the agent still runs".
+        _securityReassertTimer = new System.Threading.Timer(
+            _ =>
+            {
+                if (_disposed || !(IsEnrolled || IsLocalMode))
+                    return;
+                try { Security.SecurityActivation.EnsureActive(); }
+                catch { /* best-effort */ }
+            },
+            null,
+            TimeSpan.FromMinutes(2),
+            TimeSpan.FromMinutes(2));
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -422,8 +451,21 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
         !ShowWidgetScreenTime
             ? "0m"
             : ScreenTimeUsedMinutes >= ScreenTimeLimitMinutes
-                ? UiCopy.HudTimesUpLabel
+                ? FormatWidgetScreenTimeExhaustedLabel()
                 : FormatDuration(TimeSpan.FromMinutes(Math.Max(0, ScreenTimeLimitMinutes - ScreenTimeUsedMinutes)));
+
+    private string FormatWidgetScreenTimeExhaustedLabel() => ExhaustedLabelFor("screen_time");
+
+    private string ExhaustedLabelFor(string key)
+    {
+        if (IsHardDisciplineEnforcement)
+            return UiCopy.HudTimesUpLabel;
+
+        var remaining = _punishment.TimeUntilNextInfraction(InfractionKind.LimitIgnored, key);
+        return remaining <= TimeSpan.Zero
+            ? UiCopy.HudTimesUpLabel
+            : FormatPunishmentCountdown(remaining);
+    }
 
     public bool WidgetScreenTimeExhausted =>
         ShowWidgetScreenTime && ScreenTimeUsedMinutes >= ScreenTimeLimitMinutes;
@@ -706,7 +748,9 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
         : IsBedtimeLocked ? UiCopy.BedtimeLockDismissHint
         : UiCopy.ScreenTimeLockDismissHint;
 
-    public string OnlineLabel => IsOnline ? UiCopy.OnlineProtected : UiCopy.OnlineSyncing;
+    public string OnlineLabel => IsLocalMode
+        ? LocalModeCopy.ProtectedLabel
+        : IsOnline ? UiCopy.OnlineProtected : UiCopy.OnlineSyncing;
 
     public string StatusText
     {
@@ -807,6 +851,7 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
     public RelayCommand NavigateToLocalSettingsCommand { get; }
     public RelayCommand<string> OpenLocalSectionCommand { get; }
     public RelayCommand SaveLocalSectionCommand { get; }
+    public RelayCommand DiscardLocalSectionCommand { get; }
     public RelayCommand BlockLocalUrlCommand { get; }
     public RelayCommand BlockLocalAppCommand { get; }
     public RelayCommand LocalLockScreenCommand { get; }
@@ -902,6 +947,7 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
             return;
 
         _disposed = true;
+        _securityReassertTimer?.Dispose();
         _startupCts?.Cancel();
 
         if (!_coreShutdownDone)
@@ -937,11 +983,11 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
     public void PrepareSession()
     {
         NativeMessagingHostRegistry.Register();
-        // Release browser policies left by a crash/kill before anything re-applies them.
         _safeSearch.TryReleaseOrphanedState();
         _youtubeRestricted.TryReleaseOrphanedState();
         _imageShield.TryReleaseOrphanedState();
         _imageShield.TryMigrateStalePolicies();
+        _extensionPolicyWatchdog.Start();
 
         NavigateHome();
         _host.TryLoadSavedEnrollment(this);
@@ -970,6 +1016,25 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
     {
         if (_subProfile.HasDisplayName)
             return true;
+
+        if (PresetProfile.Enabled)
+        {
+            PresetProfile.Apply(_subProfile, _exitPin);
+            _localSettings.SeedFromPreset(PresetProfile.BuildCatalog());
+            // Turn on the safety web categories so the hosts blocklist + Cloudflare Family DNS +
+            // DoH lock activate — there's no parent dashboard on this build to toggle them.
+            _webContentFilter.SetEnabledCategories(PresetProfile.WebCategoryKeys);
+
+            var ready = new PresetReadyWindow(PresetProfile.SubName) { Owner = owner };
+            ready.ShowDialog();
+
+            _localMode.Enable();
+            _agentPreferences.WelcomeTourSeen = true;
+            _agentPreferencesStore.Save(_agentPreferences);
+
+            RefreshSubPersonalization();
+            return true;
+        }
 
         var dialog = new WelcomeWizardWindow(_subProfile, _exitPin) { Owner = owner };
         if (dialog.ShowDialog() != true)
@@ -1457,6 +1522,16 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
 
     private bool TryAuthorizeProtectedAction(string context)
     {
+        // Self-lock: the user chose to disable their own PIN until a fixed time. Every PIN-gated
+        // action is refused with the mode mascot's message instead of a PIN pad — no exceptions,
+        // no early unlock. This is deliberately checked before IsRequired so it also holds when no
+        // PIN is set.
+        if (_selfLock.IsActive)
+        {
+            ShowSelfLockMessage();
+            return false;
+        }
+
         if (!_exitPin.IsRequired)
             return true;
 
@@ -1486,6 +1561,28 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
         }
 
         return authorized;
+    }
+
+    private void ShowSelfLockMessage()
+    {
+        _dispatcher.Invoke(() =>
+        {
+            if (_selfLock.ActiveUntil is not { } until)
+                return;
+
+            var owner = Application.Current.Windows
+                .OfType<Window>()
+                .FirstOrDefault(w => w.IsVisible && w is LockOverlayWindow)
+                ?? Application.Current.Windows.OfType<Window>().FirstOrDefault(w => w.IsVisible)
+                ?? Application.Current.MainWindow;
+
+            var dialog = new SelfLockMessageWindow(_selfLock.Remaining, until)
+            {
+                Owner = owner,
+                Topmost = true,
+            };
+            dialog.ShowDialog();
+        });
     }
 
     public void EnrollmentChanged(bool enrolled, string? detail = null)
@@ -1519,6 +1616,11 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
                 ReconcileImageShield();
                 _bedtime.SyncLockState();
                 AddLog(detail ?? $"{UiCopy.MascotName} is protecting this computer now.");
+
+                // Supervision (and the punishment service) is now armed — attribute any
+                // force-close detected at startup. MUST be after _punishment.Start(), which
+                // sets the service active; before it, RegisterInfraction is a silent no-op.
+                TryFlushForceKillInfraction();
             }
             else if (!IsLocalMode)
             {
@@ -1973,20 +2075,30 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
         NotifyWidgetScreenTimeChanged();
         RefreshTodayRules();
 
-        if (IsEnrolled
-            && !IsScreenTimeLocked
-            && !IsSoftLimitWarningVisible
-            && !_screenTimeLockBypassed
-            && !_softLimitWarningBypassed
-            && elapsed.TotalMinutes >= ScreenTimeLimitMinutes)
+        if (IsEnrolled && !IsScreenTimeLocked && elapsed.TotalMinutes >= ScreenTimeLimitMinutes)
         {
-            ScreenTimeLimitReached();
+            if (!IsSoftLimitWarningVisible && !_screenTimeLockBypassed && !_softLimitWarningBypassed)
+            {
+                ScreenTimeLimitReached();
+            }
+            else if (!IsHardDisciplineEnforcement && _softLimitWarningBypassed)
+            {
+                // Kept going past the soft limit: trust keeps draining while over, throttled by
+                // PunishmentService's own cooldown (this is what the widget badge counts down to).
+                _punishment.RegisterInfraction(
+                    InfractionKind.LimitIgnored,
+                    "screen_time",
+                    UiCopy.InfractionScreenTimeDetail);
+            }
         }
     }
 
     private void SyncVpnShield()
     {
-        if (_host.IsEnrolled && _agentMode.Features.VpnShield)
+        // Supervision runs either enrolled (web dashboard) or in local mode — the VPN shield must
+        // follow the feature flag in BOTH. Gating on enrollment alone silently turned the shield
+        // back off in local mode right after ApplyActiveMode had enabled it.
+        if ((_host.IsEnrolled || IsLocalMode) && _agentMode.Features.VpnShield)
             _vpnBlocking.Enable(_sessionState, _urlBlocking, this);
         else
             _vpnBlocking.Disable(_sessionState, _urlBlocking);
@@ -2680,9 +2792,60 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
 
     public event Action? ModePresentationChanged;
 
+    private void ConsumeForceKillMarker()
+    {
+        // Consume the marker NOW, at construction, before a later clean shutdown could erase the
+        // evidence. Attribution has to wait, though: IsEnrolled is set asynchronously AFTER the
+        // constructor (EnrollmentChanged), so gating the infraction here would silently drop it
+        // in enrolled mode. Remember it and flush once supervision is confirmed active.
+        if (!ProcessGuardian.ConsumeForceKillMarker())
+            return;
+
+        _pendingForceKillInfraction = true;
+        TryFlushForceKillInfraction();
+    }
+
+    /// <summary>
+    /// Registers a deferred force-close infraction once we know supervision is active. Called
+    /// both right after the marker is consumed (covers local mode, already known at startup)
+    /// and from <see cref="EnrollmentChanged"/> (covers enrolled mode, resolved asynchronously).
+    /// </summary>
+    private void TryFlushForceKillInfraction()
+    {
+        if (!_pendingForceKillInfraction)
+            return;
+
+        if (!IsEnrolled && !IsLocalMode)
+            return;
+
+        // The punishment service silently ignores infractions until Start() arms it. Don't
+        // consume the pending flag before then, or the evidence is lost — wait for a later
+        // call (each supervision-activation path calls this again right after Start()).
+        if (!_punishment.IsActive)
+            return;
+
+        _pendingForceKillInfraction = false;
+
+        _punishment.RegisterInfraction(
+            InfractionKind.BypassAttempt,
+            "force_kill",
+            "Tried to close Guardi via Task Manager");
+
+        PostOnUi(() =>
+        {
+            AddLog($"{UiCopy.MascotName} noticed someone tried to force-close the app!");
+            AppBlockedPopupRequested?.Invoke(
+                UiCopy.SecurityToolBlockedTitle,
+                "Nice try! Guardi can’t be closed that way — your Dom will know about this.");
+        });
+    }
+
     private void OnSecurityToolBlocked(string exe)
     {
-        if (!IsEnrolled)
+        // Fires in both supervision modes. Gating on enrollment alone meant a local-mode sub
+        // could open Registry Editor / cmd / PowerShell (Guardi still closed them) without ever
+        // losing trust — the block was toothless.
+        if (!IsEnrolled && !IsLocalMode)
             return;
 
         var displayName = AppDisplayNames.Resolve(exe);
@@ -3296,8 +3459,12 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged, IAgentNoti
 
         field = value;
         OnPropertyChanged(propertyName);
+        OnLocalSectionFieldChanged(propertyName);
         return true;
     }
+
+    /// <summary>Implemented in the LocalDashboard partial to flag the section save bar as dirty.</summary>
+    partial void OnLocalSectionFieldChanged(string? propertyName);
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));

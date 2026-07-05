@@ -4,40 +4,43 @@ namespace EduGuardAgent.Security;
 
 internal sealed class GamingUsageStore
 {
-    private static readonly string UsagePath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        Config.AgentDataDir,
-        "gaming_usage.json");
+    private const string FileName = "gaming_usage.json";
 
     public StoredGamingUsage Load(DateOnly today)
     {
-        if (!File.Exists(UsagePath))
-            return StoredGamingUsage.Empty(today);
+        var status = SecureStateFile.Read(FileName, out var json);
 
-        try
+        if (status == StateReadStatus.Ok)
         {
-            var json = File.ReadAllText(UsagePath);
-            var stored = JsonSerializer.Deserialize<StoredGamingUsage>(json);
-            if (stored is null || stored.Date != today.ToString("yyyy-MM-dd"))
-                return StoredGamingUsage.Empty(today);
+            try
+            {
+                var stored = JsonSerializer.Deserialize<StoredGamingUsage>(json);
+                if (stored is null || stored.Date != today.ToString("yyyy-MM-dd"))
+                    return StoredGamingUsage.Empty(today);
 
-            stored.Games ??= new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
-            return stored;
+                stored.Games ??= new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+                return stored;
+            }
+            catch
+            {
+                status = StateReadStatus.Tampered;
+            }
         }
-        catch
+
+        if (status == StateReadStatus.Tampered)
         {
-            return StoredGamingUsage.Empty(today);
+            AuditLog.Write("SECURITY: gaming usage failed integrity check — failing closed to limit reached.");
+            return StoredGamingUsage.Saturated(today);
         }
+
+        return StoredGamingUsage.Empty(today);
     }
 
     public void Save(StoredGamingUsage usage)
     {
         try
         {
-            var dir = Path.GetDirectoryName(UsagePath)!;
-            Directory.CreateDirectory(dir);
-            var json = JsonSerializer.Serialize(usage, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(UsagePath, json);
+            SecureStateFile.Write(FileName, JsonSerializer.Serialize(usage, new JsonSerializerOptions { WriteIndented = true }));
         }
         catch
         {
@@ -48,6 +51,9 @@ internal sealed class GamingUsageStore
 
 internal sealed class StoredGamingUsage
 {
+    // Fail-closed sentinel: larger than any plausible daily limit.
+    private const double SaturatedSeconds = 48 * 60 * 60;
+
     public string? Date { get; set; }
     public double GlobalSeconds { get; set; }
     public Dictionary<string, double>? Games { get; set; }
@@ -56,6 +62,13 @@ internal sealed class StoredGamingUsage
     {
         Date = today.ToString("yyyy-MM-dd"),
         GlobalSeconds = 0,
+        Games = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase),
+    };
+
+    public static StoredGamingUsage Saturated(DateOnly today) => new()
+    {
+        Date = today.ToString("yyyy-MM-dd"),
+        GlobalSeconds = SaturatedSeconds,
         Games = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase),
     };
 }

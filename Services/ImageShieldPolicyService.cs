@@ -150,10 +150,16 @@ internal sealed class ImageShieldPolicyService
             Config.ExtensionGuardEnforceFirefox
             && (Config.ExtensionGuardFirefoxLocalMode
                 || ExtensionConfigResolver.Active?.IsFirefoxStoreReady == true),
-        BrowserKind.Chrome or BrowserKind.Edge or BrowserKind.Brave =>
+        // Edge and Brave are blocked: neither reliably force-installs the Chrome Web Store shield
+        // on a home PC (Edge refuses off-store force-install on non-domain machines; Brave loads
+        // the policy but never installs the CRX). Only dev/unpacked sideload can shield them.
+        BrowserKind.Edge or BrowserKind.Brave =>
+            Config.ExtensionGuardEnforceChromium && ChromiumUnpackedMode.IsActive,
+        BrowserKind.Chrome =>
             Config.ExtensionGuardEnforceChromium
             && (ChromiumUnpackedMode.IsActive
-                || ExtensionConfigResolver.Active?.IsChromiumReady == true),
+                || (Config.ChromiumExtensionPublished
+                    && ExtensionConfigResolver.Active?.IsChromiumReady == true)),
         _ => false,
     };
 
@@ -379,6 +385,7 @@ internal sealed class ImageShieldPolicyState
         {
             [ImageShieldBrowserKeys.Firefox] = new() { Enabled = true },
             [ImageShieldBrowserKeys.Chrome] = new() { Enabled = Config.ExtensionGuardEnforceChromium },
+            // Edge and Brave are blocked (see IsBrowserAgentAvailable) — leave them off.
             [ImageShieldBrowserKeys.Edge] = new() { Enabled = false },
             [ImageShieldBrowserKeys.Brave] = new() { Enabled = false },
         };
@@ -401,10 +408,7 @@ internal sealed class ImageShieldToggleState
 
 internal static class ImageShieldPolicyStore
 {
-    private static readonly string PolicyPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        Config.AgentDataDir,
-        "image-shield-policy.json");
+    private const string FileName = "image-shield-policy.json";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -416,10 +420,15 @@ internal static class ImageShieldPolicyStore
     {
         try
         {
-            if (!File.Exists(PolicyPath))
+            // On tamper (or missing) we return null so the caller falls back to the shield-on
+            // LocalDefaults — the safe direction. The file also lives in the Users-read-only
+            // secure folder, so a supervised user can't edit it to disable the NSFW blur.
+            var status = SecureStateFile.Read(FileName, out var json);
+            if (status == StateReadStatus.Tampered)
+                AuditLog.Write("SECURITY: image-shield policy failed integrity check — falling back to shield-on defaults.");
+            if (status != StateReadStatus.Ok)
                 return null;
 
-            var json = File.ReadAllText(PolicyPath);
             return JsonSerializer.Deserialize<ImageShieldPolicyState>(json, JsonOptions);
         }
         catch (Exception ex)
@@ -433,9 +442,8 @@ internal static class ImageShieldPolicyStore
     {
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(PolicyPath)!);
             var json = JsonSerializer.Serialize(state, JsonOptions);
-            File.WriteAllText(PolicyPath, json);
+            SecureStateFile.Write(FileName, json);
         }
         catch (Exception ex)
         {

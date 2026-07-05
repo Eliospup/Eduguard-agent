@@ -21,12 +21,10 @@ namespace EduGuardAgent.Behaviors;
 /// </summary>
 public static class SmoothScroll
 {
-    // Pixels travelled per wheel notch. Roughly two of WPF's default three-line steps,
-    // tuned so a single notch covers a comfortable distance without feeling twitchy.
-    private const double StepPerNotch = 96.0;
+    private const double StepPerNotch = 160.0;
 
     private static readonly Duration AnimationDuration =
-        new(TimeSpan.FromMilliseconds(280));
+        new(TimeSpan.FromMilliseconds(180));
 
     public static readonly DependencyProperty EnabledProperty =
         DependencyProperty.RegisterAttached(

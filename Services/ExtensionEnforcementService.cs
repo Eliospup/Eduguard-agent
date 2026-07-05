@@ -19,6 +19,7 @@ internal sealed class ExtensionEnforcementService : IDisposable
     private readonly Action? _prepareFirefoxUpgrade;
     private readonly TimeSpan _installGrace;
     private readonly TimeSpan _restartCooldown;
+    private readonly TimeSpan _webStorePatience;
 
     private readonly object _lock = new();
     private readonly Dictionary<BrowserKind, BrowserInstallTrack> _installTracks = new();
@@ -44,6 +45,7 @@ internal sealed class ExtensionEnforcementService : IDisposable
         _liveness = liveness ?? new HttpExtensionLivenessProbe();
         _installGrace = TimeSpan.FromSeconds(Math.Max(120, Config.ExtensionInstallGraceSeconds));
         _restartCooldown = TimeSpan.FromSeconds(90);
+        _webStorePatience = TimeSpan.FromMinutes(5);
     }
 
     public event Action<ExtensionGuardState?>? StateChanged;
@@ -110,7 +112,10 @@ internal sealed class ExtensionEnforcementService : IDisposable
         }
 
         if (Config.BlockUnsupportedBrowsers)
+        {
             BlockUnsupportedBrowsers();
+            BlockTorBrowser();
+        }
 
         if (!Config.ExtensionGuardEnabled || !IsConfigured)
         {
@@ -128,6 +133,7 @@ internal sealed class ExtensionEnforcementService : IDisposable
         var storePending = new List<string>();
         var actionRequired = new List<string>();
         var blocked = new List<string>();
+        var chromiumBlocked = new List<string>();
         var outdated = new List<string>();
 
         if (FirefoxEditionHelper.ShouldBlockRelease
@@ -192,6 +198,13 @@ internal sealed class ExtensionEnforcementService : IDisposable
                 continue;
             }
 
+            if (method == ExtensionInstallMethod.ChromiumStoreBlocked)
+            {
+                chromiumBlocked.Add(browser.EffectiveDisplayName);
+                BrowserInstallOrchestrator.CloseBrowser(browser);
+                continue;
+            }
+
             var track = GetOrCreateTrack(browser.Kind);
             if (!track.InstallEngaged)
             {
@@ -213,6 +226,7 @@ internal sealed class ExtensionEnforcementService : IDisposable
 
         ExtensionGuardState? state =
             blocked.Count > 0 ? ExtensionGuardCopy.Unsupported(Distinct(blocked))
+            : chromiumBlocked.Count > 0 ? ExtensionGuardCopy.ChromiumStoreBlocked(Distinct(chromiumBlocked))
             : storePending.Count > 0 ? ExtensionGuardCopy.StorePending(Distinct(storePending))
             : actionRequired.Count > 0 ? ExtensionGuardCopy.ActionRequired(Distinct(actionRequired))
             : restarting.Count > 0 ? ExtensionGuardCopy.Restarting(Distinct(restarting))
@@ -271,8 +285,60 @@ internal sealed class ExtensionEnforcementService : IDisposable
             }
         }
 
+        // Chrome Web Store force-install (published): Chrome reads the ExtensionSettings
+        // policy on its own and downloads the CRX in the background. The image-shield CRX is
+        // ~19 MB (it bundles the on-device NSFW model), so the download takes a while.
+        // Restarting Chrome mid-download makes Chrome start the fetch over from scratch — which
+        // is exactly why the old "restart every 90s" loop never installed anything. So here we
+        // restart AT MOST ONCE (to force a policy re-read if Chrome was already open before the
+        // policy was written) and then wait patiently, never closing the browser.
+        if (browser.Engine == BrowserEngine.Chromium
+            && method == ExtensionInstallMethod.ChromiumWebStore
+            && Config.ChromiumExtensionPublished)
+        {
+            installing.Add(browser.EffectiveDisplayName);
+
+            var firstSeenWs = track.FirstDetectedAt ?? now;
+            var elapsedWs = now - firstSeenWs;
+
+            // One early restart so a Chrome already running picks up the freshly written policy.
+            if (track.WebStoreRestartCount == 0
+                && elapsedWs > TimeSpan.FromSeconds(10)
+                && BrowserRestartThrottle.ShouldRestart(browser.Kind))
+            {
+                track.WebStoreRestartCount++;
+                track.LastRestartAt = now;
+                restarting.Add(browser.EffectiveDisplayName);
+                BrowserRestartThrottle.MarkRestarted(browser.Kind);
+                BrowserInstallOrchestrator.RestartBrowser(browser, _log);
+                AuditLog.Write(
+                    $"Extension guard: restarted {browser.EffectiveDisplayName} once to load the Web Store " +
+                    "force-install policy; now waiting for the background CRX download (no more restarts).");
+                return;
+            }
+
+            // After the single restart, leave Chrome undisturbed for a long window so the
+            // download can finish. Only nudge with another restart if a very long time passes.
+            if (track.WebStoreRestartCount > 0
+                && elapsedWs > _webStorePatience
+                && (track.LastRestartAt is null || now - track.LastRestartAt > _webStorePatience)
+                && BrowserRestartThrottle.ShouldRestart(browser.Kind))
+            {
+                track.LastRestartAt = now;
+                restarting.Add(browser.EffectiveDisplayName);
+                BrowserRestartThrottle.MarkRestarted(browser.Kind);
+                BrowserInstallOrchestrator.RestartBrowser(browser, _log);
+                AuditLog.Write(
+                    $"Extension guard: {browser.EffectiveDisplayName} still without the shield after " +
+                    $"{(int)elapsedWs.TotalMinutes} min — nudging with a restart.");
+            }
+
+            return;
+        }
+
         if (method == ExtensionInstallMethod.ChromiumWebStore
-            && browser.Engine == BrowserEngine.Chromium)
+            && browser.Engine == BrowserEngine.Chromium
+            && !Config.ChromiumExtensionPublished)
         {
             var probe = ChromiumWebStoreProbe.Check(cfg.ChromiumExtensionId);
             if (probe.Status == ChromiumWebStoreListingStatus.NotListed)
@@ -326,7 +392,8 @@ internal sealed class ExtensionEnforcementService : IDisposable
         actionRequired.Add(browser.EffectiveDisplayName);
 
         // Enterprise policy is set but the profile never picked up the XPI — keep restarting
-        // instead of closing Firefox (Release ignores unsigned sideload kills).
+        // instead of closing Firefox (Release ignores unsigned sideload kills). The Chrome
+        // Web Store case is handled earlier with its own patient, download-friendly path.
         if (browser.Kind == BrowserKind.Firefox
             && method == ExtensionInstallMethod.FirefoxSignedEnterprise
             && policyReady)
@@ -342,18 +409,18 @@ internal sealed class ExtensionEnforcementService : IDisposable
                 {
                     track.FailureLogged = true;
                     _log?.Invoke(
-                        $"{browser.EffectiveDisplayName} shield policy is set but the extension is not loaded — restarting Firefox.");
+                        $"{browser.EffectiveDisplayName} shield policy is set but the extension is not loaded — restarting.");
                     AuditLog.Write(
-                        "Extension guard: Firefox enterprise policy deployed — restarting to load shield into profile.");
+                        $"Extension guard: {browser.EffectiveDisplayName} policy deployed — restarting to load shield into profile.");
                 }
             }
             else if (!track.FailureLogged)
             {
                 track.FailureLogged = true;
                 _log?.Invoke(
-                    $"{browser.EffectiveDisplayName} shield is still starting — check about:addons and about:policies.");
+                    $"{browser.EffectiveDisplayName} shield is still starting — check extensions page and policies.");
                 AuditLog.Write(
-                    "Extension guard: Firefox policy set but extension not in profile yet.");
+                    $"Extension guard: {browser.EffectiveDisplayName} policy set but extension not in profile yet.");
             }
 
             return;
@@ -511,6 +578,7 @@ internal sealed class ExtensionEnforcementService : IDisposable
     {
         PruneReportedPids();
 
+        // Layer 1: direct process-name match (fast path, existing behavior).
         foreach (var (processName, displayName) in BrowserCatalog.Unsupported)
         {
             Process[] processes;
@@ -555,6 +623,131 @@ internal sealed class ExtensionEnforcementService : IDisposable
                 _log?.Invoke($"Closed {displayName} — Guardi cannot protect that browser.");
                 UnsupportedBrowserBlocked?.Invoke(displayName);
             }
+        }
+
+        // Layer 2: PE OriginalFilename scan — catches renamed browser executables.
+        BlockUnsupportedBrowsersByPeMetadata();
+    }
+
+    private void BlockUnsupportedBrowsersByPeMetadata()
+    {
+        Process[] allProcesses;
+        try
+        {
+            allProcesses = Process.GetProcesses();
+        }
+        catch
+        {
+            return;
+        }
+
+        var blocked = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var process in allProcesses)
+        {
+            try
+            {
+                var pid = process.Id;
+                if (pid == Environment.ProcessId)
+                    continue;
+
+                if (process.SessionId == 0)
+                    continue;
+
+                // Skip processes already reported by Layer 1.
+                bool alreadyReported;
+                lock (_lock)
+                    alreadyReported = _reportedUnsupportedPids.Contains(pid);
+                if (alreadyReported)
+                    continue;
+
+                var processExe = SafeProcessName(process);
+                if (processExe is null)
+                    continue;
+
+                // Skip if the process name directly matches a supported browser.
+                if (string.Equals(processExe, "chrome", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(processExe, "msedge", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(processExe, "firefox", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var originalExe = Security.ProcessIdentifier.GetOriginalFilename(process);
+                if (originalExe is null)
+                    continue;
+
+                if (!BrowserCatalog.UnsupportedOriginalFilenames.TryGetValue(originalExe, out var displayName))
+                    continue;
+
+                lock (_lock)
+                {
+                    if (_reportedUnsupportedPids.Add(pid))
+                        blocked[displayName] = true;
+                }
+
+                process.Kill(entireProcessTree: true);
+            }
+            catch
+            {
+                // best effort
+            }
+            finally
+            {
+                process.Dispose();
+            }
+        }
+
+        foreach (var displayName in blocked.Keys)
+        {
+            _log?.Invoke($"Closed {displayName} (renamed exe detected via PE metadata).");
+            UnsupportedBrowserBlocked?.Invoke(displayName);
+        }
+    }
+
+    private static string? SafeProcessName(Process process)
+    {
+        try { return process.ProcessName; }
+        catch { return null; }
+    }
+
+    private void BlockTorBrowser()
+    {
+        PruneReportedPids();
+
+        var reportNew = false;
+        foreach (var process in FirefoxEditionHelper.GetFirefoxProcesses())
+        {
+            try
+            {
+                var path = FirefoxEditionHelper.TryGetExecutablePath(process);
+                if (path is null || !BrowserCatalog.IsTorBrowserPath(path))
+                    continue;
+
+                var pid = process.Id;
+                if (pid == Environment.ProcessId)
+                    continue;
+
+                lock (_lock)
+                {
+                    if (_reportedUnsupportedPids.Add(pid))
+                        reportNew = true;
+                }
+
+                process.Kill(entireProcessTree: true);
+            }
+            catch
+            {
+                // best effort
+            }
+            finally
+            {
+                process.Dispose();
+            }
+        }
+
+        if (reportNew)
+        {
+            AuditLog.Write("Extension guard: closed Tor Browser — it routes around the hosts blocklist and family DNS.");
+            UnsupportedBrowserBlocked?.Invoke("Tor Browser");
         }
     }
 
@@ -628,5 +821,6 @@ internal sealed class ExtensionEnforcementService : IDisposable
         public bool PayloadDeployed;
         public bool FailureLogged;
         public bool LiveFailureLogged;
+        public int WebStoreRestartCount;
     }
 }

@@ -4,31 +4,33 @@ namespace EduGuardAgent.Security;
 
 internal sealed class SubProfileStore
 {
-    private static readonly string ProfilePath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        Config.AgentDataDir,
-        Config.SubProfileFileName);
+    private static string FileName => Config.SubProfileFileName;
 
     public StoredSubProfile Load()
     {
-        if (!File.Exists(ProfilePath))
-            return StoredSubProfile.Empty;
+        var status = SecureStateFile.Read(FileName, out var json);
 
-        try
+        if (status == StateReadStatus.Ok)
         {
-            var json = File.ReadAllText(ProfilePath);
-            return JsonSerializer.Deserialize<StoredSubProfile>(json) ?? StoredSubProfile.Empty;
+            try
+            {
+                return JsonSerializer.Deserialize<StoredSubProfile>(json) ?? StoredSubProfile.Empty;
+            }
+            catch
+            {
+                status = StateReadStatus.Tampered;
+            }
         }
-        catch
-        {
-            return StoredSubProfile.Empty;
-        }
+
+        if (status == StateReadStatus.Tampered)
+            AuditLog.Write("SECURITY: sub profile failed integrity check.");
+
+        return StoredSubProfile.Empty;
     }
 
     public void Save(StoredSubProfile profile)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(ProfilePath)!);
-        File.WriteAllText(ProfilePath, JsonSerializer.Serialize(profile));
+        SecureStateFile.Write(FileName, JsonSerializer.Serialize(profile));
     }
 
     internal sealed class StoredSubProfile

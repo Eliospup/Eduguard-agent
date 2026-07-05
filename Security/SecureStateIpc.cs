@@ -40,6 +40,15 @@ internal static class SecureStateIpcClient
     public static bool TryDelete(string path, out string? error) =>
         Send(new SecureStateRequest { Op = "delete", Path = path }, out error);
 
+    /// <summary>
+    /// True when the SYSTEM guardian is actually serving the pipe (a full request/response
+    /// round-trip, not just a socket connect). Used to decide whether it is safe to lock the
+    /// secure folder SYSTEM-only — locking down with no working guardian would brick every
+    /// secure write.
+    /// </summary>
+    public static bool IsGuardianResponding() =>
+        Send(new SecureStateRequest { Op = "ping" }, out _);
+
     private static bool Send(SecureStateRequest request, out string? error)
     {
         error = null;
@@ -181,6 +190,10 @@ internal static class SecureStateIpcServer
 
     private static SecureStateResponse Execute(SecureStateRequest request)
     {
+        // Health check: confirms the guardian is genuinely serving, without touching disk.
+        if (request.Op == "ping")
+            return new SecureStateResponse { Ok = true };
+
         // Confine every operation to the secure folder; reject traversal / stray paths.
         var secureRoot = EnsureTrailingSeparator(Path.GetFullPath(SecureDataPaths.Dir));
         string fullPath;
@@ -233,8 +246,14 @@ internal static class SecureStateIpcServer
             var clientImage = client.MainModule?.FileName;
             var ours = Environment.ProcessPath;
 
-            return clientImage is not null && ours is not null
-                && string.Equals(Path.GetFullPath(clientImage), Path.GetFullPath(ours), StringComparison.OrdinalIgnoreCase);
+            if (clientImage is null || ours is null
+                || !string.Equals(Path.GetFullPath(clientImage), Path.GetFullPath(ours), StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            // Path match alone is forgeable by an admin who drops a malicious build at our exe
+            // path. When this build is Authenticode-signed, additionally require the client to
+            // carry a valid signature by the same signer. No-op on unsigned builds.
+            return AuthenticodeVerifier.MatchesSelfSigner(clientImage);
         }
         catch
         {

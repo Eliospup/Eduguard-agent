@@ -21,6 +21,9 @@ internal enum ExtensionInstallMethod
     /// <summary>Standard Firefox cannot load our unsigned extension — block the browser.</summary>
     FirefoxReleaseBlocked,
 
+    /// <summary>Chromium extension not yet available on the Chrome Web Store — block the browser.</summary>
+    ChromiumStoreBlocked,
+
     /// <summary>Browser not installed or enforcement disabled for this engine.</summary>
     NotApplicable,
 }

@@ -7,7 +7,7 @@ namespace EduGuardAgent.Views;
 [SupportedOSPlatform("windows")]
 public partial class BedtimeWarningToastWindow : Window
 {
-    private static readonly TimeSpan VisibleDuration = TimeSpan.FromSeconds(4);
+    private static readonly TimeSpan VisibleDuration = TimeSpan.FromSeconds(6);
     private DispatcherTimer? _hideTimer;
 
     public BedtimeWarningToastWindow(string title, string message, string? iconGlyph = null)

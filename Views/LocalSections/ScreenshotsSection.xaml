@@ -1,0 +1,12 @@
+<UserControl x:Class="EduGuardAgent.Views.LocalSections.ScreenshotsSection"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Border Style="{StaticResource LocalSectionBox}">
+    <StackPanel>
+      <TextBlock Text="Screenshot interval — minutes" Style="{StaticResource LocalSectionLabel}" />
+      <TextBlock Text="Uploads still run when enrolled; interval applies after agent restart."
+                 Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,10" />
+      <TextBox Text="{Binding LocalScreenshotInterval, UpdateSourceTrigger=PropertyChanged}" Width="200" HorizontalAlignment="Left" />
+    </StackPanel>
+  </Border>
+</UserControl>

@@ -1,10 +1,12 @@
 ﻿using System.Collections.ObjectModel;
+using System.Linq;
 using System.Windows;
 using EduGuardAgent.Agent;
 using EduGuardAgent.Models;
 using EduGuardAgent.Profiles;
 using EduGuardAgent.Security;
 using EduGuardAgent.Services;
+using EduGuardAgent.Views;
 
 namespace EduGuardAgent.ViewModels;
 
@@ -27,6 +29,135 @@ internal sealed partial class MainViewModel
     public ObservableCollection<LocalAppTimeLimitItem> LocalAppTimeLimits { get; } = [];
     public ObservableCollection<LocalCustomGameItem> LocalCustomGames { get; } = [];
     public ObservableCollection<LocalWebCategoryItem> LocalWebCategories { get; } = [];
+
+    /// <summary>The hub cards grouped for the nav list, with live value subtitles.</summary>
+    public ObservableCollection<LocalHubGroupView> LocalHubGroupsView { get; } = [];
+
+    private bool _localSectionDirty;
+    private bool _suppressLocalDirty;
+
+    /// <summary>True when the open section has unsaved edits — drives the single save bar.</summary>
+    public bool LocalSectionDirty
+    {
+        get => _localSectionDirty;
+        private set
+        {
+            if (_localSectionDirty == value)
+                return;
+
+            _localSectionDirty = value;
+            OnPropertyChanged(nameof(LocalSectionDirty));
+            DiscardLocalSectionCommand.RaiseCanExecuteChanged();
+        }
+    }
+
+    /// <summary>Sections whose changes are applied immediately (no form to save) — no save bar.</summary>
+    private bool SectionHasSaveBar =>
+        _localSectionKey is not ("control" or "blocklist");
+
+    public bool ShowLocalSaveBar => IsLocalSectionPage && SectionHasSaveBar;
+
+    // "Local*" fields that are NOT part of a section's saved form: mode pickers and the
+    // add-a-thing input boxes (they have their own buttons). Editing them must not light the bar.
+    private static readonly HashSet<string> LocalNonFormFields = new(StringComparer.Ordinal)
+    {
+        nameof(LocalEditingModeSlug), nameof(LocalActiveModeSlug),
+        nameof(LocalBlockedUrl), nameof(LocalBlockedApp),
+        nameof(LocalNewGameExe), nameof(LocalNewGameName),
+        nameof(LocalKioskManualName), nameof(LocalKioskManualPath),
+        nameof(LocalAppLimitExe), nameof(LocalAppLimitMinutes),
+        nameof(LocalSectionDirty), nameof(LocalAdvancedMode),
+    };
+
+    partial void OnLocalSectionFieldChanged(string? propertyName)
+    {
+        if (_suppressLocalDirty || propertyName is null || !IsLocalSectionPage)
+            return;
+
+        if (!propertyName.StartsWith("Local", StringComparison.Ordinal))
+            return;
+
+        if (LocalNonFormFields.Contains(propertyName))
+            return;
+
+        LocalSectionDirty = true;
+    }
+
+    private void DiscardLocalSection()
+    {
+        LoadSectionFormFromCatalog();
+        if (_localSectionKey == "playtime")
+            LoadLocalCustomGames();
+        LocalSectionDirty = false;
+    }
+
+    private void BuildLocalHubGroups()
+    {
+        if (LocalHubGroupsView.Count > 0)
+            return;
+
+        foreach (var group in LocalSettingsService.HubGroups)
+        {
+            var view = new LocalHubGroupView { Name = group.Name };
+            foreach (var card in group.Cards)
+            {
+                view.Cards.Add(new LocalHubCardView
+                {
+                    Key = card.Key,
+                    Title = card.Title,
+                    IconGlyph = card.IconGlyph,
+                    Subtitle = card.Subtitle,
+                });
+            }
+
+            LocalHubGroupsView.Add(view);
+        }
+    }
+
+    /// <summary>Recomputes each hub card's subtitle from the active mode's current values.</summary>
+    public void RefreshLocalHubSummaries()
+    {
+        BuildLocalHubGroups();
+
+        var rules = _localSettings.RulesFor(_localSettings.ActiveModeSlug);
+        foreach (var group in LocalHubGroupsView)
+        {
+            foreach (var card in group.Cards)
+                card.Subtitle = LocalHubSummary(card.Key, rules) ?? StaticHubSubtitle(card.Key);
+        }
+    }
+
+    private string? LocalHubSummary(string key, LocalPerModeRuleSet rules) => key switch
+    {
+        "supervision" => $"{rules.ScreenTimeDailyLimitMinutes} min/day",
+        "bedtime" => rules.BedtimeEnabled ? $"{rules.BedtimeTime} → {rules.WakeTime}" : "Off",
+        "playtime" => $"{rules.GamingDailyLimitMinutes} min/day",
+        "youtube" => $"{rules.YoutubeDailyLimitMinutes} min/day",
+        "app_limits" => (rules.AppTimeLimits?.Count ?? 0) is var n and > 0 ? $"{n} app limit{(n == 1 ? "" : "s")}" : "None set",
+        "study" => rules.StudyEnabled ? $"{rules.StudyStart} → {rules.StudyEnd}" : "Off",
+        "system_locks" => $"{CountSecurityLocks(rules)} lock{(CountSecurityLocks(rules) == 1 ? "" : "s")} on",
+        "kiosk" => rules.KioskMode ? "On" : "Off",
+        "discipline" => _punishment.Enabled ? "Trust meter on" : "Off",
+        _ => null,
+    };
+
+    private static int CountSecurityLocks(LocalPerModeRuleSet r)
+    {
+        var n = 0;
+        if (r.BlockTaskManager) n++;
+        if (r.VpnShield) n++;
+        if (r.BlockRegistryEditor) n++;
+        if (r.BlockCommandPrompt) n++;
+        if (r.BlockPowerShell) n++;
+        if (r.BlockSystemConfig) n++;
+        if (r.BlockControlPanel) n++;
+        if (r.BlockProcessTools) n++;
+        if (r.BlockProcessKillers) n++;
+        return n;
+    }
+
+    private static string StaticHubSubtitle(string key) =>
+        LocalSettingsService.HubCards.FirstOrDefault(c => c.Key == key)?.Subtitle ?? string.Empty;
 
     private static readonly (string Key, string Label)[] WeekDays =
     [
@@ -56,9 +187,11 @@ internal sealed partial class MainViewModel
         ?? string.Empty;
 
     public bool LocalSectionUsesModePicker =>
-        _localSectionKey is "supervision" or "bedtime" or "playtime" or "youtube" or "study" or "app_limits";
+        _localSectionKey is "supervision" or "bedtime" or "playtime" or "youtube" or "study"
+            or "app_limits" or "system_locks" or "kiosk";
 
     public bool IsLocalSupervisionSection => _localSectionKey == "supervision";
+    public bool IsLocalSystemLocksSection => _localSectionKey == "system_locks";
     public bool IsLocalKioskSection => _localSectionKey == "kiosk";
     public bool IsLocalBedtimeSection => _localSectionKey == "bedtime";
     public bool IsLocalPlaytimeSection => _localSectionKey == "playtime";
@@ -94,8 +227,10 @@ internal sealed partial class MainViewModel
 
     public RelayCommand<string> SelectLocalEditingModeCommand { get; private set; } = null!;
     public RelayCommand<string> SelectLocalActiveModeCommand { get; private set; } = null!;
+    public RelayCommand<string> SelectLocalSimpleModeCommand { get; private set; } = null!;
     public RelayCommand SaveLocalActiveModeCommand { get; private set; } = null!;
     public RelayCommand ClearLocalPunishmentCommand { get; private set; } = null!;
+    public RelayCommand ActivateSelfLockCommand { get; private set; } = null!;
     public bool HasLocalKioskApps => LocalKioskApps.Count > 0;
 
     public RelayCommand RefreshLocalKioskAppsCommand { get; private set; } = null!;
@@ -134,9 +269,28 @@ internal sealed partial class MainViewModel
             SaveLocalActiveMode,
             () => IsLocalMode && LocalActiveModeIsDirty);
 
+        // Simple mode: picking a mode both switches the computer to it AND targets its rules
+        // for editing — one concept instead of the two separate "editing" and "active" pickers.
+        SelectLocalSimpleModeCommand = new RelayCommand<string>(
+            slug =>
+            {
+                if (!AgentModeSlugs.IsKnown(slug))
+                    return;
+
+                LocalActiveModeSlug = slug!;
+                SaveLocalActiveMode();          // apply now (no-op if unchanged)
+                LocalEditingModeSlug = slug!;   // edit this mode's rules (reloads the form)
+                OnPropertyChanged(nameof(LocalEnforcedModeLabel));
+            },
+            slug => IsLocalMode && AgentModeSlugs.IsKnown(slug));
+
         ClearLocalPunishmentCommand = new RelayCommand(
             ClearLocalPunishment,
             () => IsLocalMode);
+
+        ActivateSelfLockCommand = new RelayCommand(
+            ActivateSelfLock,
+            () => IsLocalMode && !IsSelfLockActive && SelfLockRequestedDuration >= SelfLockService.MinDuration);
 
         RefreshLocalKioskAppsCommand = new RelayCommand(
             RefreshLocalKioskApps,
@@ -213,6 +367,35 @@ internal sealed partial class MainViewModel
         }
     }
 
+    private bool _localAdvancedMode;
+
+    /// <summary>
+    /// Advanced: show separate "active mode" and "editing rules for" pickers (edit any mode
+    /// without enforcing it). Simple (default): one picker that both enforces and edits a mode.
+    /// </summary>
+    public bool LocalAdvancedMode
+    {
+        get => _localAdvancedMode;
+        set
+        {
+            if (!SetField(ref _localAdvancedMode, value))
+                return;
+
+            OnPropertyChanged(nameof(LocalSimpleMode));
+            if (!value)
+            {
+                // Back to Simple: realign both pickers onto the currently-enforced mode.
+                LocalActiveModeSlug = _localSettings.ActiveModeSlug;
+                LocalEditingModeSlug = _localSettings.ActiveModeSlug;
+            }
+        }
+    }
+
+    public bool LocalSimpleMode => !_localAdvancedMode;
+
+    /// <summary>Display name of the mode currently enforced on the computer.</summary>
+    public string LocalEnforcedModeLabel => AgentModeRegistry.Get(_localSettings.ActiveModeSlug).DisplayName;
+
     private void ClearLocalPunishment()
     {
         if (!IsLocalMode)
@@ -276,6 +459,7 @@ internal sealed partial class MainViewModel
         {
             SyncKioskState();
             OnPropertyChanged(nameof(LocalActiveModeIsDirty));
+            OnPropertyChanged(nameof(LocalEnforcedModeLabel));
             SaveLocalActiveModeCommand.RaiseCanExecuteChanged();
         }
     }
@@ -515,7 +699,8 @@ internal sealed partial class MainViewModel
         set => SetField(ref _localImageShieldMaxPerSecond, value);
     }
 
-    public bool LocalImageShieldChromiumAvailable => Config.ExtensionGuardEnforceChromium;
+    public bool LocalImageShieldChromiumAvailable =>
+        ChromiumUnpackedMode.IsActive || Config.ChromiumExtensionPublished;
 
     public string LocalImageShieldFirefoxStatus => _localImageShieldFirefoxStatus;
     public string LocalImageShieldChromeStatus => _localImageShieldChromeStatus;
@@ -698,6 +883,93 @@ internal sealed partial class MainViewModel
     {
         get => _localTrustRegenPerHour;
         set => SetField(ref _localTrustRegenPerHour, Math.Clamp(value, 1, 100));
+    }
+
+    public int LocalPunishmentLimitCooldownMinutes
+    {
+        get => _localPunishmentLimitCooldownMinutes;
+        set => SetField(ref _localPunishmentLimitCooldownMinutes, Math.Clamp(value, 1, 240));
+    }
+
+    public int LocalSelfLockDays
+    {
+        get => _localSelfLockDays;
+        set { if (SetField(ref _localSelfLockDays, Math.Clamp(value, 0, 90))) OnSelfLockRequestChanged(); }
+    }
+
+    public int LocalSelfLockHours
+    {
+        get => _localSelfLockHours;
+        set { if (SetField(ref _localSelfLockHours, Math.Clamp(value, 0, 23))) OnSelfLockRequestChanged(); }
+    }
+
+    public int LocalSelfLockMinutes
+    {
+        get => _localSelfLockMinutes;
+        set { if (SetField(ref _localSelfLockMinutes, Math.Clamp(value, 0, 59))) OnSelfLockRequestChanged(); }
+    }
+
+    private TimeSpan SelfLockRequestedDuration =>
+        new(_localSelfLockDays, _localSelfLockHours, _localSelfLockMinutes, 0);
+
+    /// <summary>True while a user-initiated self-lock is in force (PIN disabled until expiry).</summary>
+    public bool IsSelfLockActive => _selfLock.IsActive;
+
+    public string SelfLockStatusText
+    {
+        get
+        {
+            if (_selfLock.ActiveUntil is { } until)
+                return $"Active — unlocks in {SelfLockService.Describe(_selfLock.Remaining)} " +
+                       $"(on {until.ToLocalTime():dddd d MMMM yyyy, HH:mm}).";
+            return "Inactive — you still control the PIN.";
+        }
+    }
+
+    private void OnSelfLockRequestChanged()
+    {
+        OnPropertyChanged(nameof(SelfLockRequestedDuration));
+        ActivateSelfLockCommand.RaiseCanExecuteChanged();
+    }
+
+    private void ActivateSelfLock()
+    {
+        if (!IsLocalMode || IsSelfLockActive)
+            return;
+
+        var duration = SelfLockRequestedDuration;
+        if (duration < SelfLockService.MinDuration)
+            return;
+
+        if (duration > SelfLockService.MaxDuration)
+            duration = SelfLockService.MaxDuration;
+
+        var unlockAt = DateTimeOffset.Now + duration;
+        var owner = Application.Current.Windows
+            .OfType<Window>()
+            .FirstOrDefault(w => w.IsActive && w.IsVisible)
+            ?? Application.Current.MainWindow;
+
+        var confirm = new SelfLockConfirmWindow(SelfLockService.Describe(duration), unlockAt)
+        {
+            Owner = owner,
+            Topmost = true,
+        };
+        if (confirm.ShowDialog() != true)
+            return;
+
+        _selfLock.Activate(duration);
+        AddLog($"Self-lock engaged — PIN disabled until {unlockAt.ToLocalTime():g}.");
+
+        LocalSelfLockDays = 0;
+        LocalSelfLockHours = 0;
+        LocalSelfLockMinutes = 0;
+
+        OnPropertyChanged(nameof(IsSelfLockActive));
+        OnPropertyChanged(nameof(SelfLockStatusText));
+        ActivateSelfLockCommand.RaiseCanExecuteChanged();
+
+        NavigateHome();
     }
 
     public int LocalTrustWeightVpn
@@ -924,6 +1196,14 @@ internal sealed partial class MainViewModel
 
     private bool TryAuthorizeRestrictionChange(string context)
     {
+        // Self-lock must beat the unlocked-session shortcut: a PIN session opened before the
+        // lock was armed must not keep letting settings through. Refuse with the mascot message.
+        if (_selfLock.IsActive)
+        {
+            ShowSelfLockMessage();
+            return false;
+        }
+
         if (_localSettingsPinUnlocked && IsLocalMode && IsLocalAreaPage && IsLocalSettingsEditContext(context))
             return true;
 
@@ -980,6 +1260,7 @@ internal sealed partial class MainViewModel
     private void OnLocalModeChanged() => PostOnUi(() =>
     {
         OnPropertyChanged(nameof(IsLocalMode));
+        OnPropertyChanged(nameof(OnlineLabel));
         NotifyWidgetScreenTimeChanged();
         OnPropertyChanged(nameof(LocalModeButtonLabel));
         OnPropertyChanged(nameof(ShowEnrollmentOverlay));
@@ -995,7 +1276,11 @@ internal sealed partial class MainViewModel
         // stays stuck at its first-evaluated CanExecute forever unless raised explicitly here.
         SelectLocalEditingModeCommand.RaiseCanExecuteChanged();
         SelectLocalActiveModeCommand.RaiseCanExecuteChanged();
+        SelectLocalSimpleModeCommand.RaiseCanExecuteChanged();
         ClearLocalPunishmentCommand.RaiseCanExecuteChanged();
+        ActivateSelfLockCommand.RaiseCanExecuteChanged();
+        OnPropertyChanged(nameof(IsSelfLockActive));
+        OnPropertyChanged(nameof(SelfLockStatusText));
         RefreshLocalKioskAppsCommand.RaiseCanExecuteChanged();
         AddLocalKioskAppCommand.RaiseCanExecuteChanged();
         BrowseLocalKioskAppCommand.RaiseCanExecuteChanged();
@@ -1042,6 +1327,11 @@ internal sealed partial class MainViewModel
         _punishment.Start();
         ReconcileImageShield();
         _bedtime.SyncLockState();
+
+        // Local supervision (and the punishment service) is now armed — attribute any
+        // force-close detected at startup. MUST be after _punishment.Start(): before it,
+        // RegisterInfraction is a silent no-op and the pending marker would be lost.
+        TryFlushForceKillInfraction();
     }
 
     private void NavigateToLocalSettings()
@@ -1056,14 +1346,15 @@ internal sealed partial class MainViewModel
         OpenLocalHub();
     }
 
+    /// <summary>Master-detail: entering local settings shows the nav rail + a default section.</summary>
     private void OpenLocalHub()
     {
-        _localSectionKey = string.Empty;
-        LocalEditingModeSlug = _localSettings.ActiveModeSlug;
-        LocalActiveModeSlug = _localSettings.ActiveModeSlug;
-        CurrentPage = DashboardPage.LocalHub;
-        NotifyLocalPageChanged();
+        RefreshLocalHubSummaries();
+        OpenLocalSection(string.IsNullOrEmpty(_localSectionKey) ? "supervision" : _localSectionKey);
     }
+
+    /// <summary>The section currently shown in the detail pane (drives nav-rail highlight).</summary>
+    public string LocalSectionKey => _localSectionKey;
 
     private void OpenLocalSection(string? key)
     {
@@ -1086,14 +1377,8 @@ internal sealed partial class MainViewModel
 
     private void NavigateBack()
     {
-        if (CurrentPage == DashboardPage.LocalSection)
-        {
-            _localSectionKey = string.Empty;
-            CurrentPage = DashboardPage.LocalHub;
-            NotifyLocalPageChanged();
-            return;
-        }
-
+        // Local settings is now a single master-detail page (nav rail always visible), so
+        // Back returns straight home instead of to a separate hub page.
         NavigateHome();
     }
 
@@ -1102,11 +1387,15 @@ internal sealed partial class MainViewModel
         OnPropertyChanged(nameof(IsLocalHubPage));
         OnPropertyChanged(nameof(IsLocalSectionPage));
         OnPropertyChanged(nameof(IsLocalAreaPage));
+        OnPropertyChanged(nameof(ShowLocalSaveBar));
+        OnPropertyChanged(nameof(LocalEnforcedModeLabel));
+        OnPropertyChanged(nameof(LocalSectionKey));
         OnPropertyChanged(nameof(LocalSectionTitle));
         OnPropertyChanged(nameof(LocalSectionSubtitle));
         OnPropertyChanged(nameof(LocalSectionUsesModePicker));
         OnPropertyChanged(nameof(IsLocalSupervisionSection));
         OnPropertyChanged(nameof(IsLocalKioskSection));
+        OnPropertyChanged(nameof(IsLocalSystemLocksSection));
         OnPropertyChanged(nameof(IsLocalBedtimeSection));
         OnPropertyChanged(nameof(IsLocalPlaytimeSection));
         OnPropertyChanged(nameof(IsLocalAppLimitsSection));
@@ -1128,6 +1417,23 @@ internal sealed partial class MainViewModel
     }
 
     private void LoadSectionFormFromCatalog()
+    {
+        // Loading the form writes every Local* field; suppress dirty tracking so a fresh load
+        // (section open / discard / mode switch) doesn't light the save bar.
+        _suppressLocalDirty = true;
+        try
+        {
+            LoadSectionFormFromCatalogCore();
+        }
+        finally
+        {
+            _suppressLocalDirty = false;
+        }
+
+        LocalSectionDirty = false;
+    }
+
+    private void LoadSectionFormFromCatalogCore()
     {
         var rules = _localSettings.RulesFor(LocalEditingModeSlug);
         LocalScreenTimeMinutes = rules.ScreenTimeDailyLimitMinutes;
@@ -1207,6 +1513,7 @@ internal sealed partial class MainViewModel
         LocalInfractionStudyEnabled = catalog.InfractionStudyTimeViolation;
         LocalInfractionBlockedSearchEnabled = catalog.InfractionBlockedSearch;
         LocalTrustRegenPerHour = catalog.TrustRegenPerHour;
+        LocalPunishmentLimitCooldownMinutes = catalog.PunishmentLimitCooldownMinutes;
         LocalTrustWeightVpn = catalog.TrustWeightVpn;
         LocalTrustWeightBypass = catalog.TrustWeightBypass;
         LocalTrustWeightBlockedApp = catalog.TrustWeightBlockedApp;
@@ -1243,6 +1550,14 @@ internal sealed partial class MainViewModel
                 {
                     rules.ScreenTimeDailyLimitMinutes = Math.Max(1, LocalScreenTimeMinutes);
                     rules.ScreenTimeWeekly = CollectWeeklyOverrides(LocalScreenWeekly);
+                });
+                _localSettings.ApplyActiveMode();
+                RefreshRestrictions();
+                break;
+
+            case "system_locks":
+                SavePerModeRules(rules =>
+                {
                     rules.BlockTaskManager = LocalBlockTaskManager;
                     rules.VpnShield = LocalVpnShield;
                     rules.BlockRegistryEditor = LocalBlockRegistryEditor;
@@ -1252,7 +1567,6 @@ internal sealed partial class MainViewModel
                     rules.BlockControlPanel = LocalBlockControlPanel;
                     rules.BlockProcessTools = LocalBlockProcessTools;
                     rules.BlockProcessKillers = LocalBlockProcessKillers;
-                    rules.KioskMode = LocalKioskMode;
                 });
                 _localSettings.ApplyActiveMode();
                 RefreshRestrictions();
@@ -1316,9 +1630,11 @@ internal sealed partial class MainViewModel
                 break;
 
             case "kiosk":
+                SavePerModeRules(rules => rules.KioskMode = LocalKioskMode);
                 PersistKioskApprovals();
-                AddLog(LocalModeCopy.KioskAppsSavedLog);
-                return;
+                _localSettings.ApplyActiveMode();
+                RefreshRestrictions();
+                break;
 
             case "discipline":
                 _localSettings.Catalog.PunishmentEnabled = LocalPunishmentEnabled;
@@ -1334,6 +1650,7 @@ internal sealed partial class MainViewModel
                 _localSettings.Catalog.InfractionStudyTimeViolation = LocalInfractionStudyEnabled;
                 _localSettings.Catalog.InfractionBlockedSearch = LocalInfractionBlockedSearchEnabled;
                 _localSettings.Catalog.TrustRegenPerHour = LocalTrustRegenPerHour;
+                _localSettings.Catalog.PunishmentLimitCooldownMinutes = LocalPunishmentLimitCooldownMinutes;
                 _localSettings.Catalog.TrustWeightVpn = LocalTrustWeightVpn;
                 _localSettings.Catalog.TrustWeightBypass = LocalTrustWeightBypass;
                 _localSettings.Catalog.TrustWeightBlockedApp = LocalTrustWeightBlockedApp;
@@ -1416,6 +1733,7 @@ internal sealed partial class MainViewModel
                 _localSettings.Catalog.ScreenshotIntervalMinutes = Math.Max(1, LocalScreenshotInterval);
                 _localSettings.Persist();
                 AddLog("Screenshot interval saved — restart the agent to apply.");
+                LocalSectionDirty = false;
                 return;
         }
 
@@ -1423,6 +1741,8 @@ internal sealed partial class MainViewModel
         OnPropertyChanged(nameof(BedtimeCardLabel));
         OnScreenTimeElapsed();
         RefreshRestrictions();
+        LocalSectionDirty = false;
+        RefreshLocalHubSummaries();
         AddLog(LocalModeCopy.SectionSavedLog);
     }
 

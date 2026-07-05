@@ -1,0 +1,12 @@
+<UserControl x:Class="EduGuardAgent.Views.LocalSections.ControlSection"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Border Style="{StaticResource LocalSectionBox}">
+    <StackPanel>
+      <TextBlock Text="Remote Dom commands (lock, message, kill) are ignored in local mode."
+                 TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,12" />
+      <Button Content="Lock screen now" Style="{StaticResource PrimaryButton}"
+              Command="{Binding LocalLockScreenCommand}" HorizontalAlignment="Left" Padding="18,8" />
+    </StackPanel>
+  </Border>
+</UserControl>
